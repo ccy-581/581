@@ -11,7 +11,7 @@
       --bg: #F4F6F8;
       --card: #FFFFFF;
       --text: #1C1E21;
-      --sub: #65676B;
+      --sub: #4A4C50; /* 加深原本的副標顏色，提升對比度 */
       --danger: #E41E3F;
       --info: #0A66C2;
       --border: #CED0D4;
@@ -29,7 +29,7 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     header h1 { font-size: 1.25rem; font-weight: 700; }
-    header p { font-size: 0.8rem; opacity: 0.9; margin-top: 4px; }
+    header p { font-size: 0.8rem; opacity: 0.9; margin-top: 4px; font-weight: 500; }
 
     .container { max-width: 520px; margin: 0 auto; padding: 12px; }
 
@@ -41,13 +41,24 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
 
-    .form-group { margin-bottom: 10px; }
-    label { display: block; font-size: 0.85rem; color: var(--sub); margin-bottom: 4px; }
+    .form-group { margin-bottom: 12px; }
+    
+    /* 🔥 實收車資、接單時間等標籤加粗、變黑、變大 */
+    label { 
+      display: block; 
+      font-size: 0.95rem; 
+      font-weight: 700; 
+      color: #111111; 
+      margin-bottom: 6px; 
+    }
+    
     input, select {
       padding: 8px 10px;
       border: 1px solid var(--border);
       border-radius: 8px;
-      font-size: 0.95rem;
+      font-size: 1rem;
+      font-weight: 600; /* 輸入框內文字加粗 */
+      color: #222;
       outline: none;
       background-color: #fff;
     }
@@ -69,8 +80,19 @@
     }
     .dash-box.blue { border-left-color: var(--info); }
     .dash-box.red { border-left-color: var(--danger); }
-    .dash-box span { font-size: 0.7rem; color: var(--sub); display: block; white-space: nowrap; margin-bottom: 2px; }
-    .dash-box strong { font-size: 1.05rem; font-weight: 700; }
+    
+    /* 🔥 看板上方的小字標題加粗、字體放大 */
+    .dash-box span { 
+      font-size: 0.8rem; 
+      font-weight: 700; 
+      color: #333333; 
+      display: block; 
+      white-space: nowrap; 
+      margin-bottom: 4px; 
+    }
+    
+    /* 看板大字數字加粗到底 */
+    .dash-box strong { font-size: 1.1rem; font-weight: 800; }
     .dash-box strong.money-blue { color: var(--info); }
     .dash-box strong.money-red { color: var(--danger); }
 
@@ -90,17 +112,17 @@
       margin-bottom: 8px;
     }
     .order-title {
-      font-weight: 700;
-      font-size: 0.95rem;
+      font-weight: 800; /* 第 1 單 字樣極粗 */
+      font-size: 1.05rem;
       color: var(--primary-dark);
     }
     .btn-remove-order {
       background: none;
       border: none;
       color: var(--danger);
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       cursor: pointer;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .time-picker-row {
@@ -110,22 +132,22 @@
     }
     .time-picker-row select {
       flex: 1;
-      height: 40px;
-      font-size: 0.95rem;
+      height: 42px;
+      font-size: 1rem;
     }
     .time-picker-row span {
-      font-weight: bold;
-      color: var(--sub);
+      font-weight: 900;
+      color: #333;
     }
     .btn-time-now {
       background: #E8F5E9;
       color: var(--primary-dark);
       border: 1px solid var(--primary);
       padding: 0 10px;
-      height: 40px;
+      height: 42px;
       border-radius: 8px;
-      font-size: 0.8rem;
-      font-weight: 600;
+      font-size: 0.85rem;
+      font-weight: 700;
       white-space: nowrap;
       cursor: pointer;
     }
@@ -143,7 +165,7 @@
       padding: 10px;
       border-radius: 8px;
       font-size: 0.95rem;
-      font-weight: 700;
+      font-weight: 800;
       margin-top: 10px;
       cursor: pointer;
       display: flex;
@@ -160,7 +182,7 @@
       margin-top: 8px;
       padding: 10px;
       border-radius: 8px;
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       line-height: 1.5;
     }
     .calc-result-badge.needs-pay {
@@ -184,7 +206,7 @@
       border: none;
       border-radius: 8px;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
     }
     .btn:active { background: var(--primary-dark); }
@@ -192,9 +214,9 @@
       background: #FFF;
       color: var(--primary-dark);
       border: 2px dashed var(--primary);
-      padding: 10px;
+      padding: 12px;
       margin-bottom: 12px;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 0.95rem;
     }
     .btn-add-batch:active {
@@ -202,12 +224,13 @@
     }
     .btn-sm {
       padding: 6px 12px;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       border-radius: 6px;
       border: 1px solid var(--border);
       background: white;
       color: var(--sub);
       cursor: pointer;
+      font-weight: 600;
     }
 
     .item-card {
@@ -220,17 +243,17 @@
       align-items: center;
       border: 1px solid var(--border);
     }
-    .item-info { font-size: 0.85rem; line-height: 1.45; }
-    .item-info .title { font-weight: bold; font-size: 0.95rem; margin-bottom: 2px; }
-    .item-info .detail { color: #555; font-size: 0.8rem; }
+    .item-info { font-size: 0.85rem; line-height: 1.5; }
+    .item-info .title { font-weight: 800; font-size: 0.95rem; margin-bottom: 2px; }
+    .item-info .detail { color: #444; font-size: 0.85rem; font-weight: 600; }
     .item-diff { text-align: right; }
     .diff-badge {
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       padding: 3px 8px;
       border-radius: 4px;
       background: #E8F5E9;
       color: var(--primary-dark);
-      font-weight: 600;
+      font-weight: 700;
       display: inline-block;
     }
     .diff-badge.needs-pay {
@@ -241,7 +264,7 @@
       color: #bbb;
       background: none;
       border: none;
-      font-size: 1.3rem;
+      font-size: 1.4rem;
       padding-left: 10px;
       cursor: pointer;
     }
@@ -252,18 +275,18 @@
 
   <header>
     <h1>外送員補差額記帳本</h1>
-    <p>多單夾單 · 即時計算自動存檔</p>
+    <p>強光戶外高對比版 · 自動存檔</p>
   </header>
 
   <div class="container">
     
     <!-- 費率設定 -->
     <div class="card" style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
-      <label style="margin: 0; font-size: 0.85rem;">保障基本時薪 ($/小時):</label>
+      <label style="margin: 0; font-size: 0.9rem;">保障基本時薪 ($/小時):</label>
       <input type="number" id="hourlyRate" value="245" style="width: 85px; padding: 4px 8px; text-align: right;" onchange="saveRate()">
     </div>
 
-    <!-- 看板 (3 欄：單數時數 / 累積車資 / 應補差額) -->
+    <!-- 看板 (3 欄) -->
     <div class="dashboard">
       <div class="dash-box">
         <span>累積單數 / 時間</span>
@@ -282,7 +305,7 @@
     <!-- 記帳表單容器 -->
     <div class="card">
       <form id="recordForm">
-        <!-- 動態訂單列表（最多 3 單） -->
+        <!-- 動態訂單列表 -->
         <div id="ordersContainer"></div>
 
         <!-- 夾單按鈕 -->
@@ -294,7 +317,7 @@
 
     <!-- 列表操作 -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 4px 8px 4px;">
-      <span style="font-weight: bold; font-size: 0.9rem;">歷史紀錄明細</span>
+      <span style="font-weight: 800; font-size: 0.95rem; color: #111;">歷史紀錄明細</span>
       <button class="btn-sm" onclick="exportCSV()">匯出 CSV</button>
     </div>
 
@@ -416,13 +439,13 @@
         badge.className = 'calc-result-badge needs-pay';
         badge.innerHTML = `
           <strong>✓ 已自動存檔！應補差額：$${shortage} 元</strong><br>
-          <span style="font-size: 0.8rem; opacity: 0.9;">耗時 ${duration} 分鐘 (車資涵蓋 ${coveredMin.toFixed(1)} 分，超時 ${overMin.toFixed(1)} 分)</span>
+          <span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">耗時 ${duration} 分鐘 (車資涵蓋 ${coveredMin.toFixed(1)} 分，超時 ${overMin.toFixed(1)} 分)</span>
         `;
       } else {
         badge.className = 'calc-result-badge covered';
         badge.innerHTML = `
           <strong>✓ 已自動存檔！車資已達標（不需補）</strong><br>
-          <span style="font-size: 0.8rem; opacity: 0.9;">耗時 ${duration} 分鐘，在車資涵蓋 ${coveredMin.toFixed(1)} 分鐘內完成！</span>
+          <span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">耗時 ${duration} 分鐘，在車資涵蓋 ${coveredMin.toFixed(1)} 分鐘內完成！</span>
         `;
       }
 
@@ -437,7 +460,6 @@
       const titleSpan = document.querySelector(`#order_block_${index} .order-title`);
       const orderTitle = titleSpan ? titleSpan.textContent : '外送訂單';
 
-      // 儲存到本地紀錄
       records.unshift({
         id: Date.now(),
         date: dateStr,
@@ -534,7 +556,7 @@
       let totalShortage = 0;
 
       if (records.length === 0) {
-        listEl.innerHTML = `<div style="text-align: center; color: #999; padding: 24px 0;">尚無紀錄</div>`;
+        listEl.innerHTML = `<div style="text-align: center; color: #999; padding: 24px 0; font-weight:bold;">尚無紀錄</div>`;
       } else {
         records.forEach(r => {
           totalMinutes += r.duration;
@@ -545,7 +567,7 @@
           card.className = 'item-card';
           card.innerHTML = `
             <div class="item-info">
-              <div class="title">${r.orderTitle || '外送訂單'} <span style="font-size:0.75rem; color:#888;">(${r.date})</span></div>
+              <div class="title">${r.orderTitle || '外送訂單'} <span style="font-size:0.8rem; color:#666;">(${r.date})</span></div>
               <div class="detail">${r.startTime} ➜ ${r.endTime} (共 ${r.duration} 分鐘)</div>
               <div class="detail">實收車資: $${r.basePay}</div>
             </div>
@@ -562,7 +584,6 @@
         });
       }
 
-      // 看板 3 個數值即時更新
       document.getElementById('totalOrders').innerText = `${records.length} 單 / ${totalMinutes}分`;
       document.getElementById('totalBasePay').innerText = `$${Math.round(totalBasePay)}`;
       document.getElementById('totalShortage').innerText = `$${Math.round(totalShortage)}`;
