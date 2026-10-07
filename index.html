@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>外送員補差額記帳本</title>
+  <style>
+    :root {
+      --primary: #00A862;
+      --primary-dark: #007D48;
+      --bg: #F4F6F8;
+      --card: #FFFFFF;
+      --text: #1C1E21;
+      --sub: #65676B;
+      --danger: #E41E3F;
+      --border: #CED0D4;
+      --order-bg: #F9FAFB;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 40px; }
+    
+    header {
+      background: var(--primary);
+      color: white;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; }
+    header p { font-size: 0.8rem; opacity: 0.9; margin-top: 4px; }
+
+    .container { max-width: 520px; margin: 0 auto; padding: 12px; }
+
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .form-group { margin-bottom: 10px; }
+    label { display: block; font-size: 0.85rem; color: var(--sub); margin-bottom: 4px; }
+    input, select {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+      background-color: #fff;
+    }
+    input:focus, select:focus { border-color: var(--primary); }
+
+    /* 夾單區塊樣式 */
+    .order-block {
+      background: var(--order-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .order-block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .order-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--primary-dark);
+    }
+    .btn-remove-order {
+      background: none;
+      border: none;
+      color: var(--danger);
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .time-picker-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .time-picker-row select {
+      flex: 1;
+      height: 40px;
+      font-size: 0.95rem;
+    }
+    .time-picker-row span {
+      font-weight: bold;
+      color: var(--sub);
+    }
+    .btn-time-now {
+      background: #E8F5E9;
+      color: var(--primary-dark);
+      border: 1px solid var(--primary);
+      padding: 0 10px;
+      height: 40px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .btn-time-now:active {
+      background: var(--primary);
+      color: white;
+    }
+
+    /* 每一單下方的計算按鈕與結果框 */
+    .btn-calc-single {
+      width: 100%;
+      background: #EBF3FF;
+      color: #0A66C2;
+      border: 1px solid #C2DCFF;
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-top: 10px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-calc-single:active {
+      background: #D9EBFF;
+    }
+
+    .calc-result-badge {
+      display: none;
+      margin-top: 8px;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    .calc-result-badge.needs-pay {
+      display: block;
+      background: #FFF1F0;
+      border: 1px solid #FFA39E;
+      color: var(--danger);
+    }
+    .calc-result-badge.covered {
+      display: block;
+      background: #F6FFED;
+      border: 1px solid #B7EB8F;
+      color: var(--primary-dark);
+    }
+
+    .btn {
+      width: 100%;
+      background: var(--primary);
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:active { background: var(--primary-dark); }
+    .btn-add-batch {
+      background: #FFF;
+      color: var(--primary-dark);
+      border: 2px dashed var(--primary);
+      padding: 10px;
+      margin-bottom: 12px;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    .btn-add-batch:active {
+      background: #E8F5E9;
+    }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--sub);
+      cursor: pointer;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .dash-box {
+      background: var(--card);
+      padding: 12px;
+      border-radius: 10px;
+      text-align: center;
+      border-left: 4px solid var(--primary);
+    }
+    .dash-box.highlight { border-left-color: var(--danger); }
+    .dash-box span { font-size: 0.75rem; color: var(--sub); display: block; }
+    .dash-box strong { font-size: 1.15rem; font-weight: 700; }
+    .dash-box strong.money { color: var(--danger); }
+
+    .item-card {
+      background: var(--card);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid var(--border);
+    }
+    .item-info { font-size: 0.85rem; line-height: 1.45; }
+    .item-info .title { font-weight: bold; font-size: 0.95rem; margin-bottom: 2px; }
+    .item-info .detail { color: #555; font-size: 0.8rem; }
+    .item-diff { text-align: right; }
+    .diff-badge {
+      font-size: 0.8rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #E8F5E9;
+      color: var(--primary-dark);
+      font-weight: 600;
+      display: inline-block;
+    }
+    .diff-badge.needs-pay {
+      background: #FFEBEE;
+      color: var(--danger);
+    }
+    .del-btn {
+      color: #bbb;
+      background: none;
+      border: none;
+      font-size: 1.3rem;
+      padding-left: 10px;
+      cursor: pointer;
+    }
+    .del-btn:hover { color: var(--danger); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>外送員補差額記帳本</h1>
+    <p>多單夾單 · 實送按時抓取微調</p>
+  </header>
+
+  <div class="container">
+    
+    <!-- 費率設定 -->
+    <div class="card" style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+      <label style="margin: 0; font-size: 0.85rem;">保障基本時薪 ($/小時):</label>
+      <input type="number" id="hourlyRate" value="245" style="width: 85px; padding: 4px 8px; text-align: right;" onchange="saveRate()">
+    </div>
+
+    <!-- 看板 -->
+    <div class="dashboard">
+      <div class="dash-box">
+        <span>累積單數 / 總外送時間</span>
+        <strong id="totalOrders">0 單 / 0 分鐘</strong>
+      </div>
+      <div class="dash-box highlight">
+        <span>累積應補差額</span>
+        <strong class="money" id="totalShortage">$0</strong>
+      </div>
+    </div>
+
+    <!-- 記帳表單容器 -->
+    <div class="card">
+      <form id="recordForm">
+        <!-- 動態訂單列表（最多 3 單） -->
+        <div id="ordersContainer"></div>
+
+        <!-- 夾單按鈕 -->
+        <button type="button" class="btn btn-add-batch" id="btnAddBatch" onclick="addOrderBlock()">＋ 新增夾單 (目前最多 3 單)</button>
+
+        <button type="submit" class="btn">＋ 儲存紀錄</button>
+      </form>
+    </div>
+
+    <!-- 列表操作 -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 4px 8px 4px;">
+      <span style="font-weight: bold; font-size: 0.9rem;">歷史紀錄明細</span>
+      <button class="btn-sm" onclick="exportCSV()">匯出 CSV</button>
+    </div>
+
+    <!-- 明細列表 -->
+    <div id="recordsList"></div>
+  </div>
+
+  <script>
+    let orderCount = 0;
+    const MAX_ORDERS = 3;
+
+    let hourOptionsHTML = '';
+    let minOptionsHTML = '';
+    for (let i = 0; i < 24; i++) {
+      const v = i.toString().padStart(2, '0');
+      hourOptionsHTML += `<option value="${v}">${v} 點</option>`;
+    }
+    for (let i = 0; i < 60; i++) {
+      const v = i.toString().padStart(2, '0');
+      minOptionsHTML += `<option value="${v}">${v} 分</option>`;
+    }
+
+    // 新增單張訂單卡片 (已移除單號欄位)
+    function addOrderBlock() {
+      const container = document.getElementById('ordersContainer');
+      const currentBlocks = container.getElementsByClassName('order-block');
+      
+      if (currentBlocks.length >= MAX_ORDERS) {
+        alert('目前最多只能夾 3 單！');
+        return;
+      }
+
+      orderCount++;
+      const index = orderCount;
+      const orderNum = currentBlocks.length + 1;
+
+      const block = document.createElement('div');
+      block.className = 'order-block';
+      block.id = `order_block_${index}`;
+
+      const isFirst = (currentBlocks.length === 0);
+      const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
+
+      block.innerHTML = `
+        <div class="order-block-header">
+          <span class="order-title">${titleText}</span>
+          ${!isFirst ? `<button type="button" class="btn-remove-order" onclick="removeOrderBlock(${index})">✕ 移除此夾單</button>` : ''}
+        </div>
+
+        <div class="form-group">
+          <label>實收基本車資 ($)</label>
+          <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;">
+        </div>
+
+        <!-- 接單時間 -->
+        <div class="form-group">
+          <label>接單時間 (起始)</label>
+          <div class="time-picker-row">
+            <select id="startH_${index}">${hourOptionsHTML}</select>
+            <span>:</span>
+            <select id="startM_${index}">${minOptionsHTML}</select>
+            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">抓當前時間</button>
+          </div>
+        </div>
+
+        <!-- 送達時間 -->
+        <div class="form-group" style="margin-bottom:0;">
+          <label>送達時間 (結束)</label>
+          <div class="time-picker-row">
+            <select id="endH_${index}">${hourOptionsHTML}</select>
+            <span>:</span>
+            <select id="endM_${index}">${minOptionsHTML}</select>
+            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">抓當前時間</button>
+          </div>
+        </div>
+
+        <!-- 獨立計算補差額按鈕 -->
+        <button type="button" class="btn-calc-single" onclick="calculateSingleOrder(${index})">⚡ 計算此單補差額</button>
+
+        <!-- 試算結果顯示區 -->
+        <div id="calc_badge_${index}" class="calc-result-badge"></div>
+      `;
+
+      container.appendChild(block);
+      updateAddButton();
+    }
+
+    // 計算單筆補差額
+    function calculateSingleOrder(index) {
+      const basePayVal = parseFloat(document.getElementById(`basePay_${index}`).value);
+      if (isNaN(basePayVal) || basePayVal <= 0) {
+        alert('請先輸入此單的實收車資！');
+        return;
+      }
+
+      const sh = parseInt(document.getElementById(`startH_${index}`).value || '0', 10);
+      const sm = parseInt(document.getElementById(`startM_${index}`).value || '0', 10);
+      const eh = parseInt(document.getElementById(`endH_${index}`).value || '0', 10);
+      const em = parseInt(document.getElementById(`endM_${index}`).value || '0', 10);
+
+      const duration = calcDuration(sh, sm, eh, em);
+      if (duration <= 0) {
+        alert('請確認時間！送達時間不可與接單時間相同或未設定。');
+        return;
+      }
+
+      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245;
+      const ratePerMin = rate / 60;
+      const coveredMin = basePayVal / ratePerMin;
+      const badge = document.getElementById(`calc_badge_${index}`);
+
+      if (duration > coveredMin) {
+        const overMin = duration - coveredMin;
+        const shortage = (overMin * ratePerMin).toFixed(1);
+        badge.className = 'calc-result-badge needs-pay';
+        badge.innerHTML = `
+          <strong>應補差額：$${shortage} 元！</strong><br>
+          <span style="font-size: 0.8rem; opacity: 0.9;">總耗時 ${duration} 分鐘 (車資涵蓋 ${coveredMin.toFixed(1)} 分，超時 ${overMin.toFixed(1)} 分)</span>
+        `;
+      } else {
+        badge.className = 'calc-result-badge covered';
+        badge.innerHTML = `
+          <strong>車資已達標（不需補差額）</strong><br>
+          <span style="font-size: 0.8rem; opacity: 0.9;">總耗時 ${duration} 分鐘，在車資涵蓋的 ${coveredMin.toFixed(1)} 分鐘內完成！</span>
+        `;
+      }
+    }
+
+    function removeOrderBlock(index) {
+      const block = document.getElementById(`order_block_${index}`);
+      if (block) {
+        block.remove();
+        updateOrderTitles();
+        updateAddButton();
+      }
+    }
+
+    function updateOrderTitles() {
+      const blocks = document.querySelectorAll('#ordersContainer .order-block');
+      blocks.forEach((b, idx) => {
+        const titleSpan = b.querySelector('.order-title');
+        if (titleSpan) {
+          titleSpan.textContent = idx === 0 ? '第 1 單' : `第 ${idx + 1} 單 (夾單)`;
+        }
+      });
+    }
+
+    function updateAddButton() {
+      const count = document.querySelectorAll('#ordersContainer .order-block').length;
+      const btn = document.getElementById('btnAddBatch');
+      if (count >= MAX_ORDERS) {
+        btn.style.display = 'none';
+      } else {
+        btn.style.display = 'block';
+        btn.textContent = `＋ 新增夾單 (目前 ${count}/${MAX_ORDERS} 單)`;
+      }
+    }
+
+    function setNow(type, index) {
+      const now = new Date();
+      const h = now.getHours().toString().padStart(2, '0');
+      const m = now.getMinutes().toString().padStart(2, '0');
+
+      if (type === 'start') {
+        document.getElementById(`startH_${index}`).value = h;
+        document.getElementById(`startM_${index}`).value = m;
+      } else {
+        document.getElementById(`endH_${index}`).value = h;
+        document.getElementById(`endM_${index}`).value = m;
+      }
+    }
+
+    function calcDuration(sh, sm, eh, em) {
+      if (sh === 0 && sm === 0 && eh === 0 && em === 0) return 0;
+      let startMin = sh * 60 + sm;
+      let endMin = eh * 60 + em;
+      if (endMin < startMin) {
+        endMin += 24 * 60; // 跨夜
+      }
+      return endMin - startMin;
+    }
+
+    let records = JSON.parse(localStorage.getItem('delivery_records') || '[]');
+    let rate = parseFloat(localStorage.getItem('delivery_rate') || '245');
+    document.getElementById('hourlyRate').value = rate;
+
+    function saveRate() {
+      rate = parseFloat(document.getElementById('hourlyRate').value) || 245;
+      localStorage.setItem('delivery_rate', rate);
+      render();
+    }
+
+    // 表單批次儲存
+    document.getElementById('recordForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const blocks = document.querySelectorAll('#ordersContainer .order-block');
+      if (blocks.length === 0) return;
+
+      const ratePerMin = rate / 60;
+      const now = new Date();
+      const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
+      const newItems = [];
+
+      for (let i = 0; i < blocks.length; i++) {
+        const idSuffix = blocks[i].id.replace('order_block_', '');
+        const basePayVal = parseFloat(document.getElementById(`basePay_${idSuffix}`).value);
+        
+        const sh = parseInt(document.getElementById(`startH_${idSuffix}`).value || '0', 10);
+        const sm = parseInt(document.getElementById(`startM_${idSuffix}`).value || '0', 10);
+        const eh = parseInt(document.getElementById(`endH_${idSuffix}`).value || '0', 10);
+        const em = parseInt(document.getElementById(`endM_${idSuffix}`).value || '0', 10);
+
+        const duration = calcDuration(sh, sm, eh, em);
+        if (duration <= 0) {
+          alert(`請檢查第 ${i + 1} 單的時間！送達時間不可與接單時間相同或未設定。`);
+          return;
+        }
+
+        const coveredMin = basePayVal / ratePerMin;
+        const overMin = duration > coveredMin ? (duration - coveredMin) : 0;
+        const shortage = overMin * ratePerMin;
+
+        const sH_str = sh.toString().padStart(2, '0');
+        const sM_str = sm.toString().padStart(2, '0');
+        const eH_str = eh.toString().padStart(2, '0');
+        const eM_str = em.toString().padStart(2, '0');
+
+        const orderTitle = blocks.length > 1 ? `夾單組 (${i + 1}/${blocks.length})` : '外送訂單';
+
+        newItems.push({
+          id: Date.now() + i,
+          date: dateStr,
+          orderTitle: orderTitle,
+          startTime: `${sH_str}:${sM_str}`,
+          endTime: `${eH_str}:${eM_str}`,
+          duration,
+          basePay: basePayVal,
+          shortage: Math.round(shortage * 10) / 10
+        });
+      }
+
+      records = [...newItems, ...records];
+      localStorage.setItem('delivery_records', JSON.stringify(records));
+
+      document.getElementById('ordersContainer').innerHTML = '';
+      orderCount = 0;
+      addOrderBlock();
+      render();
+    });
+
+    function deleteRecord(id) {
+      if (confirm('確定刪除這筆紀錄？')) {
+        records = records.filter(r => r.id !== id);
+        localStorage.setItem('delivery_records', JSON.stringify(records));
+        render();
+      }
+    }
+
+    function render() {
+      const listEl = document.getElementById('recordsList');
+      listEl.innerHTML = '';
+
+      let totalMinutes = 0;
+      let totalShortage = 0;
+
+      if (records.length === 0) {
+        listEl.innerHTML = `<div style="text-align: center; color: #999; padding: 24px 0;">尚無紀錄</div>`;
+      } else {
+        records.forEach(r => {
+          totalMinutes += r.duration;
+          totalShortage += r.shortage;
+
+          const card = document.createElement('div');
+          card.className = 'item-card';
+          card.innerHTML = `
+            <div class="item-info">
+              <div class="title">${r.orderTitle || '外送訂單'} <span style="font-size:0.75rem; color:#888;">(${r.date})</span></div>
+              <div class="detail">${r.startTime} ➜ ${r.endTime} (共 ${r.duration} 分鐘)</div>
+              <div class="detail">實收車資: $${r.basePay}</div>
+            </div>
+            <div style="display: flex; align-items: center;">
+              <div class="item-diff">
+                ${r.shortage > 0 
+                  ? `<span class="diff-badge needs-pay">補 $${r.shortage}</span>` 
+                  : `<span class="diff-badge">達標</span>`}
+              </div>
+              <button class="del-btn" onclick="deleteRecord(${r.id})">×</button>
+            </div>
+          `;
+          listEl.appendChild(card);
+        });
+      }
+
+      document.getElementById('totalOrders').innerText = `${records.length} 單 / ${totalMinutes} 分鐘`;
+      document.getElementById('totalShortage').innerText = `$${Math.round(totalShortage)}`;
+    }
+
+    function exportCSV() {
+      if (records.length === 0) return alert('尚無資料');
+      let csv = "data:text/csv;charset=utf-8,\uFEFF";
+      csv += "日期,組別,接單時間,送達時間,耗時(分),車資,應補差額\n";
+      
+      records.forEach(r => {
+        csv += `"${r.date}","${r.orderTitle || '一般'}","${r.startTime}","${r.endTime}",${r.duration},${r.basePay},${r.shortage}\n`;
+      });
+
+      const uri = encodeURI(csv);
+      const link = document.createElement("a");
+      link.href = uri;
+      link.download = `外送工時補差額_${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+    }
+
+    addOrderBlock();
+    render();
+  </script>
+</body>
+</html>
