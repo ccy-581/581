@@ -282,7 +282,7 @@
 
   <header>
     <h1>外送員補差額記帳本</h1>
-    <p>強光高對比 · 日期篩選與自動歸零</p>
+    
   </header>
 
   <div class="container">
@@ -369,7 +369,7 @@
         </div>
 
         <div class="form-group">
-          <label>實收基本車資 ($)</label>
+          <label>行程費用 ($)</label>
           <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
         </div>
 
@@ -379,7 +379,7 @@
             <select id="startH_${index}" onchange="markStarted(${index})">${hourOptionsHTML}</select>
             <span>:</span>
             <select id="startM_${index}" onchange="markStarted(${index})">${minOptionsHTML}</select>
-            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">抓當前時間</button>
+            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">當前時間</button>
           </div>
         </div>
 
@@ -395,7 +395,7 @@
             <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select>
             <span>:</span>
             <select id="endM_${index}" onchange="markEnded(${index})">${minOptionsHTML}</select>
-            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">抓當前時間</button>
+            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">當前時間</button>
           </div>
         </div>
 
