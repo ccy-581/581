@@ -63,7 +63,6 @@
     }
     input:focus, select:focus { border-color: var(--primary); }
 
-    /* 3 欄並列看板 */
     .dashboard {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -83,7 +82,6 @@
     .dash-box.blue { border-left-color: var(--info); }
     .dash-box.red { border-left-color: var(--danger); }
     
-    /* 解除白字 nowrap 限制，允許換行以適應小螢幕 */
     .dash-box span { 
       font-size: 0.75rem; 
       font-weight: 700; 
@@ -98,7 +96,6 @@
     .dash-box strong.money-blue { color: var(--info); }
     .dash-box strong.money-red { color: var(--danger); }
 
-    /* 夾單區塊樣式 */
     .order-block {
       background: var(--order-bg);
       border: 1px solid var(--border);
@@ -136,7 +133,7 @@
       flex: 1;
       height: 42px;
       font-size: 1rem;
-      min-width: 0; /* 讓 select 可以完美縮小 */
+      min-width: 0;
     }
     .time-picker-row span {
       font-weight: 900;
@@ -154,12 +151,25 @@
       white-space: nowrap;
       cursor: pointer;
     }
-    .btn-time-now:active {
-      background: var(--primary);
-      color: white;
-    }
+    .btn-time-now:active { background: var(--primary); color: white; }
 
-    /* 每一單下方的計算按鈕與結果框 */
+    /* 🔥 實時跳錶面板專屬樣式 */
+    .live-panel {
+      background: #111111;
+      color: #FFFFFF;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-top: 10px;
+      margin-bottom: 12px;
+      display: none; /* 預設隱藏，按開始才顯示 */
+      justify-content: space-between;
+      align-items: center;
+      border-left: 4px solid var(--primary);
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+    }
+    .live-panel div { font-size: 0.95rem; font-weight: 700; }
+    .live-panel strong { font-size: 1.25rem; font-family: monospace; letter-spacing: 1px; }
+
     .btn-calc-single {
       width: 100%;
       background: #EBF3FF;
@@ -176,9 +186,7 @@
       align-items: center;
       gap: 4px;
     }
-    .btn-calc-single:active {
-      background: #D9EBFF;
-    }
+    .btn-calc-single:active { background: #D9EBFF; }
 
     .calc-result-badge {
       display: none;
@@ -222,9 +230,7 @@
       font-weight: 800;
       font-size: 0.95rem;
     }
-    .btn-add-batch:active {
-      background: #E8F5E9;
-    }
+    .btn-add-batch:active { background: #E8F5E9; }
     .btn-sm {
       padding: 6px 12px;
       font-size: 0.85rem;
@@ -259,21 +265,10 @@
       font-weight: 700;
       display: inline-block;
     }
-    .diff-badge.needs-pay {
-      background: #FFEBEE;
-      color: var(--danger);
-    }
-    .del-btn {
-      color: #bbb;
-      background: none;
-      border: none;
-      font-size: 1.4rem;
-      padding-left: 10px;
-      cursor: pointer;
-    }
+    .diff-badge.needs-pay { background: #FFEBEE; color: var(--danger); }
+    .del-btn { color: #bbb; background: none; border: none; font-size: 1.4rem; padding-left: 10px; cursor: pointer; }
     .del-btn:hover { color: var(--danger); }
 
-    /* 🔥 響應式設計：偵測小於 430px 的手機螢幕 (例如 iPhone) 自動縮小比例 */
     @media (max-width: 430px) {
       .dashboard { gap: 4px; }
       .dash-box { padding: 8px 2px; }
@@ -283,6 +278,11 @@
       .time-picker-row select { padding: 8px 4px; font-size: 0.9rem; }
       .btn-time-now { padding: 0 6px; font-size: 0.75rem; }
       label { font-size: 0.9rem; }
+      
+      /* 小螢幕跳錶面板微調 */
+      .live-panel { padding: 10px 12px; }
+      .live-panel div { font-size: 0.85rem; }
+      .live-panel strong { font-size: 1.1rem; }
     }
   </style>
 </head>
@@ -290,18 +290,16 @@
 
   <header>
     <h1>外送員補差額記帳本</h1>
-    <p>強光戶外高對比版 · 手機自適應螢幕</p>
+    
   </header>
 
   <div class="container">
     
-    <!-- 費率設定 -->
     <div class="card" style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
       <label style="margin: 0; font-size: 0.9rem;">保障基本時薪 ($/小時):</label>
       <input type="number" id="hourlyRate" value="245" style="width: 85px; padding: 4px 8px; text-align: right;" onchange="saveRate()">
     </div>
 
-    <!-- 看板 (3 欄) -->
     <div class="dashboard">
       <div class="dash-box">
         <span>累積單數/時間</span>
@@ -317,26 +315,19 @@
       </div>
     </div>
 
-    <!-- 記帳表單容器 -->
     <div class="card">
       <form id="recordForm">
-        <!-- 動態訂單列表 -->
         <div id="ordersContainer"></div>
-
-        <!-- 夾單按鈕 -->
         <button type="button" class="btn btn-add-batch" id="btnAddBatch" onclick="addOrderBlock()">＋ 新增夾單 (目前 1/3 單)</button>
-
         <button type="submit" class="btn" style="display:none;" id="btnSubmitAll">＋ 儲存紀錄</button>
       </form>
     </div>
 
-    <!-- 列表操作 -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 4px 8px 4px;">
       <span style="font-weight: 800; font-size: 0.95rem; color: #111;">歷史紀錄明細</span>
       <button class="btn-sm" onclick="exportCSV()">匯出 CSV</button>
     </div>
 
-    <!-- 明細列表 -->
     <div id="recordsList"></div>
   </div>
 
@@ -367,13 +358,12 @@
       orderCount++;
       const index = orderCount;
       const orderNum = currentBlocks.length + 1;
+      const isFirst = (currentBlocks.length === 0);
+      const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
 
       const block = document.createElement('div');
       block.className = 'order-block';
       block.id = `order_block_${index}`;
-
-      const isFirst = (currentBlocks.length === 0);
-      const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
 
       block.innerHTML = `
         <div class="order-block-header">
@@ -382,7 +372,7 @@
         </div>
 
         <div class="form-group">
-          <label>實收基本車資 ($)</label>
+          <label>基本行程費用 ($)</label>
           <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;">
         </div>
 
@@ -390,20 +380,26 @@
         <div class="form-group">
           <label>接單時間 (起始)</label>
           <div class="time-picker-row">
-            <select id="startH_${index}">${hourOptionsHTML}</select>
+            <select id="startH_${index}" onchange="markStarted(${index})">${hourOptionsHTML}</select>
             <span>:</span>
-            <select id="startM_${index}">${minOptionsHTML}</select>
+            <select id="startM_${index}" onchange="markStarted(${index})">${minOptionsHTML}</select>
             <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">抓當前時間</button>
           </div>
+        </div>
+
+        <!-- 🔥 實時跳錶面板 -->
+        <div class="live-panel" id="live_panel_${index}">
+          <div>⏱️ 耗時: <strong id="live_time_${index}">00:00</strong></div>
+          <div>💰 補差: <strong id="live_money_${index}">--</strong></div>
         </div>
 
         <!-- 送達時間 -->
         <div class="form-group" style="margin-bottom:0;">
           <label>送達時間 (結束)</label>
           <div class="time-picker-row">
-            <select id="endH_${index}">${hourOptionsHTML}</select>
+            <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select>
             <span>:</span>
-            <select id="endM_${index}">${minOptionsHTML}</select>
+            <select id="endM_${index}" onchange="markEnded(${index})">${minOptionsHTML}</select>
             <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">抓當前時間</button>
           </div>
         </div>
@@ -417,6 +413,81 @@
       container.appendChild(block);
       updateAddButton();
     }
+
+    // 觸發開始計時狀態
+    function markStarted(index) {
+      const block = document.getElementById(`order_block_${index}`);
+      if (block) {
+        block.dataset.started = 'true';
+        block.dataset.ended = 'false'; // 取消結束狀態
+        document.getElementById(`live_panel_${index}`).style.display = 'flex';
+      }
+    }
+
+    // 觸發結束計時狀態（定格）
+    function markEnded(index) {
+      const block = document.getElementById(`order_block_${index}`);
+      if (block) {
+        block.dataset.ended = 'true';
+      }
+    }
+
+    // 🔥 核心計時器：每秒更新跳錶面板
+    setInterval(() => {
+      const blocks = document.querySelectorAll('.order-block');
+      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245;
+      const ratePerMin = rate / 60;
+
+      blocks.forEach(block => {
+        // 只有在已開始且未結束的狀態下才更新
+        if (block.dataset.started !== 'true' || block.dataset.ended === 'true') return;
+        
+        const index = block.id.replace('order_block_', '');
+        const sh = parseInt(document.getElementById(`startH_${index}`).value, 10);
+        const sm = parseInt(document.getElementById(`startM_${index}`).value, 10);
+        
+        const now = new Date();
+        const start = new Date();
+        start.setHours(sh, sm, 0, 0);
+
+        let diffMs = now.getTime() - start.getTime();
+        if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000; // 跨午夜處理
+
+        const totalSeconds = Math.floor(diffMs / 1000);
+        const mins = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        
+        // 更新耗時文字
+        const timeStr = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        document.getElementById(`live_time_${index}`).textContent = timeStr;
+
+        const basePay = parseFloat(document.getElementById(`basePay_${index}`).value) || 0;
+        const coveredMin = basePay / ratePerMin;
+        const liveMoney = document.getElementById(`live_money_${index}`);
+        const panel = document.getElementById(`live_panel_${index}`);
+
+        if (basePay === 0) {
+           liveMoney.textContent = "請輸入車資";
+           liveMoney.style.color = "#FFCA28"; // 黃色提示
+           panel.style.borderLeftColor = "#FFCA28";
+        } else if ((totalSeconds / 60) > coveredMin) {
+           // 超時開始跳錶 (紅色)
+           const overMin = (totalSeconds / 60) - coveredMin;
+           const shortage = overMin * ratePerMin;
+           liveMoney.textContent = `+$${shortage.toFixed(1)}`;
+           liveMoney.style.color = "#FF5252"; 
+           panel.style.borderLeftColor = "#FF5252";
+        } else {
+           // 涵蓋範圍內 (綠色倒數)
+           const remainSecs = Math.floor((coveredMin * 60) - totalSeconds);
+           const rMin = Math.floor(remainSecs / 60);
+           const rSec = remainSecs % 60;
+           liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`;
+           liveMoney.style.color = "#00E676";
+           panel.style.borderLeftColor = "#00E676";
+        }
+      });
+    }, 1000);
 
     function calculateAndSaveOrder(index) {
       const basePayInput = document.getElementById(`basePay_${index}`);
@@ -453,13 +524,13 @@
         badge.className = 'calc-result-badge needs-pay';
         badge.innerHTML = `
           <strong>✓ 已自動存檔！應補差額：$${shortage} 元</strong><br>
-          <span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">耗時 ${duration} 分鐘 (車資涵蓋 ${coveredMin.toFixed(1)} 分，超時 ${overMin.toFixed(1)} 分)</span>
+          <span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">總耗時 ${duration} 分鐘 (車資涵蓋 ${coveredMin.toFixed(1)} 分，超時 ${overMin.toFixed(1)} 分)</span>
         `;
       } else {
         badge.className = 'calc-result-badge covered';
         badge.innerHTML = `
           <strong>✓ 已自動存檔！車資已達標（不需補）</strong><br>
-          <span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">耗時 ${duration} 分鐘，在車資涵蓋 ${coveredMin.toFixed(1)} 分鐘內完成！</span>
+          <span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">總耗時 ${duration} 分鐘，在車資涵蓋 ${coveredMin.toFixed(1)} 分鐘內完成！</span>
         `;
       }
 
@@ -527,9 +598,11 @@
       if (type === 'start') {
         document.getElementById(`startH_${index}`).value = h;
         document.getElementById(`startM_${index}`).value = m;
+        markStarted(index);
       } else {
         document.getElementById(`endH_${index}`).value = h;
         document.getElementById(`endM_${index}`).value = m;
+        markEnded(index);
       }
     }
 
