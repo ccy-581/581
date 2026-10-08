@@ -153,7 +153,6 @@
     }
     .btn-time-now:active { background: var(--primary); color: white; }
 
-    /* 🔥 實時跳錶面板專屬樣式 */
     .live-panel {
       background: #111111;
       color: #FFFFFF;
@@ -161,7 +160,7 @@
       padding: 12px 16px;
       margin-top: 10px;
       margin-bottom: 12px;
-      display: none; /* 預設隱藏，按開始才顯示 */
+      display: none; 
       justify-content: space-between;
       align-items: center;
       border-left: 4px solid var(--primary);
@@ -196,13 +195,7 @@
       font-size: 0.9rem;
       line-height: 1.5;
     }
-    .calc-result-badge.needs-pay {
-      display: block;
-      background: #FFF1F0;
-      border: 1px solid #FFA39E;
-      color: var(--danger);
-    }
-    .calc-result-badge.covered {
+    .calc-result-badge.success {
       display: block;
       background: #F6FFED;
       border: 1px solid #B7EB8F;
@@ -279,7 +272,6 @@
       .btn-time-now { padding: 0 6px; font-size: 0.75rem; }
       label { font-size: 0.9rem; }
       
-      /* 小螢幕跳錶面板微調 */
       .live-panel { padding: 10px 12px; }
       .live-panel div { font-size: 0.85rem; }
       .live-panel strong { font-size: 1.1rem; }
@@ -290,7 +282,7 @@
 
   <header>
     <h1>外送員補差額記帳本</h1>
-    
+    <p>強光高對比 · 日期篩選與自動歸零</p>
   </header>
 
   <div class="container">
@@ -300,6 +292,7 @@
       <input type="number" id="hourlyRate" value="245" style="width: 85px; padding: 4px 8px; text-align: right;" onchange="saveRate()">
     </div>
 
+    <!-- 看板 (3 欄) 這裡的數字會依照日期篩選連動 -->
     <div class="dashboard">
       <div class="dash-box">
         <span>累積單數/時間</span>
@@ -319,13 +312,16 @@
       <form id="recordForm">
         <div id="ordersContainer"></div>
         <button type="button" class="btn btn-add-batch" id="btnAddBatch" onclick="addOrderBlock()">＋ 新增夾單 (目前 1/3 單)</button>
-        <button type="submit" class="btn" style="display:none;" id="btnSubmitAll">＋ 儲存紀錄</button>
       </form>
     </div>
 
+    <!-- 🔥 歷史明細與日期篩選器 -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 4px 8px 4px;">
-      <span style="font-weight: 800; font-size: 0.95rem; color: #111;">歷史紀錄明細</span>
-      <button class="btn-sm" onclick="exportCSV()">匯出 CSV</button>
+      <span style="font-weight: 800; font-size: 0.95rem; color: #111;">📅 跑單紀錄</span>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <select id="dateFilter" onchange="changeDateFilter()" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; font-weight: 700; background: #fff;"></select>
+        <button class="btn-sm" onclick="exportCSV()">匯出 CSV</button>
+      </div>
     </div>
 
     <div id="recordsList"></div>
@@ -334,6 +330,7 @@
   <script>
     let orderCount = 0;
     const MAX_ORDERS = 3;
+    let currentFilter = null; // 紀錄目前選擇的日期
 
     let hourOptionsHTML = '';
     let minOptionsHTML = '';
@@ -372,11 +369,10 @@
         </div>
 
         <div class="form-group">
-          <label>基本行程費用 ($)</label>
-          <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;">
+          <label>實收基本車資 ($)</label>
+          <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
         </div>
 
-        <!-- 接單時間 -->
         <div class="form-group">
           <label>接單時間 (起始)</label>
           <div class="time-picker-row">
@@ -387,13 +383,12 @@
           </div>
         </div>
 
-        <!-- 🔥 實時跳錶面板 -->
+        <!-- 實時跳錶面板 -->
         <div class="live-panel" id="live_panel_${index}">
           <div>⏱️ 耗時: <strong id="live_time_${index}">00:00</strong></div>
           <div>💰 補差: <strong id="live_money_${index}">--</strong></div>
         </div>
 
-        <!-- 送達時間 -->
         <div class="form-group" style="margin-bottom:0;">
           <label>送達時間 (結束)</label>
           <div class="time-picker-row">
@@ -414,17 +409,16 @@
       updateAddButton();
     }
 
-    // 觸發開始計時狀態
     function markStarted(index) {
       const block = document.getElementById(`order_block_${index}`);
       if (block) {
         block.dataset.started = 'true';
-        block.dataset.ended = 'false'; // 取消結束狀態
+        block.dataset.ended = 'false';
         document.getElementById(`live_panel_${index}`).style.display = 'flex';
+        hideBadge(index);
       }
     }
 
-    // 觸發結束計時狀態（定格）
     function markEnded(index) {
       const block = document.getElementById(`order_block_${index}`);
       if (block) {
@@ -432,18 +426,24 @@
       }
     }
 
-    // 🔥 核心計時器：每秒更新跳錶面板
+    function hideBadge(index) {
+      document.getElementById(`calc_badge_${index}`).style.display = 'none';
+    }
+
+    // 每秒更新跳錶
     setInterval(() => {
       const blocks = document.querySelectorAll('.order-block');
       const rate = parseFloat(document.getElementById('hourlyRate').value) || 245;
       const ratePerMin = rate / 60;
 
       blocks.forEach(block => {
-        // 只有在已開始且未結束的狀態下才更新
         if (block.dataset.started !== 'true' || block.dataset.ended === 'true') return;
         
         const index = block.id.replace('order_block_', '');
-        const sh = parseInt(document.getElementById(`startH_${index}`).value, 10);
+        const startH_el = document.getElementById(`startH_${index}`);
+        if (!startH_el) return;
+
+        const sh = parseInt(startH_el.value, 10);
         const sm = parseInt(document.getElementById(`startM_${index}`).value, 10);
         
         const now = new Date();
@@ -451,15 +451,13 @@
         start.setHours(sh, sm, 0, 0);
 
         let diffMs = now.getTime() - start.getTime();
-        if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000; // 跨午夜處理
+        if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
 
         const totalSeconds = Math.floor(diffMs / 1000);
         const mins = Math.floor(totalSeconds / 60);
         const secs = totalSeconds % 60;
         
-        // 更新耗時文字
-        const timeStr = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
-        document.getElementById(`live_time_${index}`).textContent = timeStr;
+        document.getElementById(`live_time_${index}`).textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
 
         const basePay = parseFloat(document.getElementById(`basePay_${index}`).value) || 0;
         const coveredMin = basePay / ratePerMin;
@@ -468,17 +466,15 @@
 
         if (basePay === 0) {
            liveMoney.textContent = "請輸入車資";
-           liveMoney.style.color = "#FFCA28"; // 黃色提示
+           liveMoney.style.color = "#FFCA28"; 
            panel.style.borderLeftColor = "#FFCA28";
         } else if ((totalSeconds / 60) > coveredMin) {
-           // 超時開始跳錶 (紅色)
            const overMin = (totalSeconds / 60) - coveredMin;
            const shortage = overMin * ratePerMin;
            liveMoney.textContent = `+$${shortage.toFixed(1)}`;
            liveMoney.style.color = "#FF5252"; 
            panel.style.borderLeftColor = "#FF5252";
         } else {
-           // 涵蓋範圍內 (綠色倒數)
            const remainSecs = Math.floor((coveredMin * 60) - totalSeconds);
            const rMin = Math.floor(remainSecs / 60);
            const rSec = remainSecs % 60;
@@ -489,6 +485,7 @@
       });
     }, 1000);
 
+    // 🔥 儲存並自動歸零
     function calculateAndSaveOrder(index) {
       const basePayInput = document.getElementById(`basePay_${index}`);
       const basePayVal = parseFloat(basePayInput.value);
@@ -513,25 +510,12 @@
       const rate = parseFloat(document.getElementById('hourlyRate').value) || 245;
       const ratePerMin = rate / 60;
       const coveredMin = basePayVal / ratePerMin;
-      const badge = document.getElementById(`calc_badge_${index}`);
-
       let shortage = 0;
       let overMin = 0;
 
       if (duration > coveredMin) {
         overMin = duration - coveredMin;
         shortage = Math.round((overMin * ratePerMin) * 10) / 10;
-        badge.className = 'calc-result-badge needs-pay';
-        badge.innerHTML = `
-          <strong>✓ 已自動存檔！應補差額：$${shortage} 元</strong><br>
-          <span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">總耗時 ${duration} 分鐘 (車資涵蓋 ${coveredMin.toFixed(1)} 分，超時 ${overMin.toFixed(1)} 分)</span>
-        `;
-      } else {
-        badge.className = 'calc-result-badge covered';
-        badge.innerHTML = `
-          <strong>✓ 已自動存檔！車資已達標（不需補）</strong><br>
-          <span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">總耗時 ${duration} 分鐘，在車資涵蓋 ${coveredMin.toFixed(1)} 分鐘內完成！</span>
-        `;
       }
 
       const sH_str = sh.toString().padStart(2, '0');
@@ -541,10 +525,10 @@
 
       const now = new Date();
       const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
-      
       const titleSpan = document.querySelector(`#order_block_${index} .order-title`);
       const orderTitle = titleSpan ? titleSpan.textContent : '外送訂單';
 
+      // 存入陣列與 localStorage
       records.unshift({
         id: Date.now(),
         date: dateStr,
@@ -557,6 +541,30 @@
       });
 
       localStorage.setItem('delivery_records', JSON.stringify(records));
+      
+      // 切換回當天的視圖，確保儲存後一定看得到這單
+      currentFilter = dateStr;
+
+      // 🔥 介面歸零重置
+      basePayInput.value = '';
+      document.getElementById(`startH_${index}`).value = '00';
+      document.getElementById(`startM_${index}`).value = '00';
+      document.getElementById(`endH_${index}`).value = '00';
+      document.getElementById(`endM_${index}`).value = '00';
+
+      const block = document.getElementById(`order_block_${index}`);
+      block.dataset.started = 'false';
+      block.dataset.ended = 'false';
+      document.getElementById(`live_panel_${index}`).style.display = 'none';
+
+      // 顯示成功提示（直到下次輸入時隱藏）
+      const badge = document.getElementById(`calc_badge_${index}`);
+      badge.className = 'calc-result-badge success';
+      badge.innerHTML = `
+        <strong>✓ 儲存成功！剛才這單補差額：$${shortage} 元</strong><br>
+        <span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">格子已清空，可直接開始下一單！</span>
+      `;
+
       render();
     }
 
@@ -634,18 +642,49 @@
       }
     }
 
+    // 處理日期篩選器變更
+    function changeDateFilter() {
+      currentFilter = document.getElementById('dateFilter').value;
+      render();
+    }
+
     function render() {
       const listEl = document.getElementById('recordsList');
       listEl.innerHTML = '';
+
+      const today = new Date();
+      const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
+      
+      if (currentFilter === null) currentFilter = todayStr;
+
+      // 更新日期下拉選單
+      let dates = [...new Set(records.map(r => r.date))];
+      if (!dates.includes(todayStr)) dates.unshift(todayStr); // 確保選單裡有今天
+      
+      const filterSel = document.getElementById('dateFilter');
+      filterSel.innerHTML = '<option value="ALL">全部歷史紀錄</option>';
+      dates.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = (d === todayStr) ? `${d} (今天)` : d;
+        filterSel.appendChild(opt);
+      });
+      filterSel.value = currentFilter;
+
+      // 依據選擇的日期過濾資料
+      let filteredRecords = records;
+      if (currentFilter !== 'ALL') {
+        filteredRecords = records.filter(r => r.date === currentFilter);
+      }
 
       let totalMinutes = 0;
       let totalBasePay = 0;
       let totalShortage = 0;
 
-      if (records.length === 0) {
-        listEl.innerHTML = `<div style="text-align: center; color: #999; padding: 24px 0; font-weight:bold;">尚無紀錄</div>`;
+      if (filteredRecords.length === 0) {
+        listEl.innerHTML = `<div style="text-align: center; color: #999; padding: 24px 0; font-weight:bold;">此日期尚無紀錄</div>`;
       } else {
-        records.forEach(r => {
+        filteredRecords.forEach(r => {
           totalMinutes += r.duration;
           totalBasePay += r.basePay;
           totalShortage += r.shortage;
@@ -671,24 +710,32 @@
         });
       }
 
-      document.getElementById('totalOrders').innerText = `${records.length} 單 / ${totalMinutes}分`;
+      // 🔥 看板的數字只會顯示「目前選定日期」的總計
+      document.getElementById('totalOrders').innerText = `${filteredRecords.length} 單 / ${totalMinutes}分`;
       document.getElementById('totalBasePay').innerText = `$${Math.round(totalBasePay)}`;
       document.getElementById('totalShortage').innerText = `$${Math.round(totalShortage)}`;
     }
 
+    // 匯出功能也改為匯出「當前選定日期」或「全部」
     function exportCSV() {
-      if (records.length === 0) return alert('尚無資料');
+      let filteredRecords = records;
+      if (currentFilter !== 'ALL') {
+        filteredRecords = records.filter(r => r.date === currentFilter);
+      }
+      if (filteredRecords.length === 0) return alert('此日期無資料可匯出');
+      
       let csv = "data:text/csv;charset=utf-8,\uFEFF";
       csv += "日期,組別,接單時間,送達時間,耗時(分),車資,應補差額\n";
       
-      records.forEach(r => {
+      filteredRecords.forEach(r => {
         csv += `"${r.date}","${r.orderTitle || '一般'}","${r.startTime}","${r.endTime}",${r.duration},${r.basePay},${r.shortage}\n`;
       });
 
       const uri = encodeURI(csv);
       const link = document.createElement("a");
       link.href = uri;
-      link.download = `外送工時補差額_${new Date().toISOString().slice(0,10)}.csv`;
+      const fileNameDate = currentFilter === 'ALL' ? '全部歷史' : currentFilter.replace('/', '-');
+      link.download = `外送補差額_${fileNameDate}.csv`;
       link.click();
     }
 
