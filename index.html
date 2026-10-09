@@ -5,31 +5,100 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>外送員補差額記帳本</title>
   <style>
+    /* ☀️ 預設日間模式 (高對比白色) */
     :root {
       --primary: #00A862;
       --primary-dark: #007D48;
       --bg: #F4F6F8;
       --card: #FFFFFF;
-      --text: #1C1E21;
+      --text: #111111;
       --sub: #4A4C50;
       --danger: #E41E3F;
       --info: #0A66C2;
       --border: #CED0D4;
       --order-bg: #F9FAFB;
+      --input-bg: #FFFFFF;
+      --input-text: #222222;
+      --btn-light-bg: #E8F5E9;
+      --btn-calc-bg: #EBF3FF;
+      --btn-calc-border: #C2DCFF;
+      --btn-calc-text: #0A66C2;
+      --badge-bg: #E8F5E9;
+      --badge-text: #007D48;
+      --badge-pay-bg: #FFEBEE;
+      --result-pay-bg: #FFF1F0;
+      --result-pay-border: #FFA39E;
+      --result-covered-bg: #F6FFED;
+      --result-covered-border: #B7EB8F;
+      --result-covered-text: #007D48;
+      --header-bg: #00A862;
+      --header-text: #FFFFFF;
+      --live-panel-bg: #111111;
+    }
+
+    /* ☕ 深焙咖啡模式 (Dark Roast) */
+    [data-theme="dark-roast"] {
+      --primary: #F59E0B;       
+      --primary-dark: #D97706;  
+      --bg: #292524;            
+      --card: #44403C;          
+      --text: #FAF8F5;          
+      --sub: #D6D3D1;           
+      --danger: #EF4444;        
+      --info: #10B981;          
+      --border: #57534E;        
+      --order-bg: #3A3532;      
+      --input-bg: #1C1917;      
+      --input-text: #FAF8F5;
+      --btn-light-bg: #57534E;
+      --btn-calc-bg: #292524;
+      --btn-calc-border: #F59E0B;
+      --btn-calc-text: #F59E0B;
+      --badge-bg: #292524;
+      --badge-text: #F59E0B;
+      --badge-pay-bg: #450A0A;
+      --result-pay-bg: #450A0A;
+      --result-pay-border: #991B1B;
+      --result-covered-bg: #14532D;
+      --result-covered-border: #166534;
+      --result-covered-text: #4ADE80;
+      --header-bg: #D97706;
+      --header-text: #FFFFFF;
+      --live-panel-bg: #111111;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding-bottom: 40px; }
     
+    /* 加入平滑過場動畫，讓切換主題時不刺眼 */
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 40px; transition: background-color 0.3s ease, color 0.3s ease; }
+    .card, input, select, .order-block, header, .btn-calc-single, .dash-box { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+
     header {
-      background: var(--primary);
-      color: white;
+      background: var(--header-bg);
+      color: var(--header-text);
       padding: 16px;
       text-align: center;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: relative;
     }
-    header h1 { font-size: 1.25rem; font-weight: 700; }
+    header h1 { font-size: 1.2rem; font-weight: 700; margin-right: 60px; margin-left: 20px;}
     header p { font-size: 0.8rem; opacity: 0.9; margin-top: 4px; font-weight: 500; }
+
+    /* 右上角的主題切換按鈕 */
+    .btn-theme-toggle {
+      position: absolute;
+      top: 16px;
+      right: 12px;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
 
     .container { max-width: 520px; margin: 0 auto; padding: 12px; }
 
@@ -47,7 +116,7 @@
       display: block; 
       font-size: 0.95rem; 
       font-weight: 700; 
-      color: #111111; 
+      color: var(--text); 
       margin-bottom: 6px; 
     }
     
@@ -57,9 +126,9 @@
       border-radius: 8px;
       font-size: 1rem;
       font-weight: 600;
-      color: #222;
+      color: var(--input-text);
       outline: none;
-      background-color: #fff;
+      background-color: var(--input-bg);
     }
     input:focus, select:focus { border-color: var(--primary); }
 
@@ -85,7 +154,7 @@
     .dash-box span { 
       font-size: 0.75rem; 
       font-weight: 700; 
-      color: #333333; 
+      color: var(--text); 
       display: block; 
       white-space: normal; 
       margin-bottom: 4px; 
@@ -137,10 +206,10 @@
     }
     .time-picker-row span {
       font-weight: 900;
-      color: #333;
+      color: var(--text);
     }
     .btn-time-now {
-      background: #E8F5E9;
+      background: var(--btn-light-bg);
       color: var(--primary-dark);
       border: 1px solid var(--primary);
       padding: 0 10px;
@@ -154,7 +223,7 @@
     .btn-time-now:active { background: var(--primary); color: white; }
 
     .live-panel {
-      background: #111111;
+      background: var(--live-panel-bg);
       color: #FFFFFF;
       border-radius: 8px;
       padding: 12px 16px;
@@ -171,9 +240,9 @@
 
     .btn-calc-single {
       width: 100%;
-      background: #EBF3FF;
-      color: #0A66C2;
-      border: 1px solid #C2DCFF;
+      background: var(--btn-calc-bg);
+      color: var(--btn-calc-text);
+      border: 1px solid var(--btn-calc-border);
       padding: 10px;
       border-radius: 8px;
       font-size: 0.95rem;
@@ -185,7 +254,7 @@
       align-items: center;
       gap: 4px;
     }
-    .btn-calc-single:active { background: #D9EBFF; }
+    .btn-calc-single:active { opacity: 0.8; }
 
     .calc-result-badge {
       display: none;
@@ -197,9 +266,9 @@
     }
     .calc-result-badge.success {
       display: block;
-      background: #F6FFED;
-      border: 1px solid #B7EB8F;
-      color: var(--primary-dark);
+      background: var(--result-covered-bg);
+      border: 1px solid var(--result-covered-border);
+      color: var(--result-covered-text);
     }
 
     .btn {
@@ -215,7 +284,7 @@
     }
     .btn:active { background: var(--primary-dark); }
     .btn-add-batch {
-      background: #FFF;
+      background: var(--card);
       color: var(--primary-dark);
       border: 2px dashed var(--primary);
       padding: 12px;
@@ -223,14 +292,14 @@
       font-weight: 800;
       font-size: 0.95rem;
     }
-    .btn-add-batch:active { background: #E8F5E9; }
+    .btn-add-batch:active { opacity: 0.7; }
     .btn-sm {
       padding: 6px 12px;
       font-size: 0.85rem;
       border-radius: 6px;
       border: 1px solid var(--border);
-      background: white;
-      color: var(--sub);
+      background: var(--card);
+      color: var(--text);
       cursor: pointer;
       font-weight: 600;
     }
@@ -247,19 +316,19 @@
     }
     .item-info { font-size: 0.85rem; line-height: 1.5; }
     .item-info .title { font-weight: 800; font-size: 0.95rem; margin-bottom: 2px; }
-    .item-info .detail { color: #444; font-size: 0.85rem; font-weight: 600; }
+    .item-info .detail { color: var(--sub); font-size: 0.85rem; font-weight: 600; }
     .item-diff { text-align: right; }
     .diff-badge {
       font-size: 0.85rem;
       padding: 3px 8px;
       border-radius: 4px;
-      background: #E8F5E9;
-      color: var(--primary-dark);
+      background: var(--badge-bg);
+      color: var(--badge-text);
       font-weight: 700;
       display: inline-block;
     }
-    .diff-badge.needs-pay { background: #FFEBEE; color: var(--danger); }
-    .del-btn { color: #bbb; background: none; border: none; font-size: 1.4rem; padding-left: 10px; cursor: pointer; }
+    .diff-badge.needs-pay { background: var(--badge-pay-bg); color: var(--danger); }
+    .del-btn { color: var(--sub); background: none; border: none; font-size: 1.4rem; padding-left: 10px; cursor: pointer; }
     .del-btn:hover { color: var(--danger); }
 
     @media (max-width: 430px) {
@@ -271,7 +340,6 @@
       .time-picker-row select { padding: 8px 4px; font-size: 0.9rem; }
       .btn-time-now { padding: 0 6px; font-size: 0.75rem; }
       label { font-size: 0.9rem; }
-      
       .live-panel { padding: 10px 12px; }
       .live-panel div { font-size: 0.85rem; }
       .live-panel strong { font-size: 1.1rem; }
@@ -282,17 +350,18 @@
 
   <header>
     <h1>外送員補差額記帳本</h1>
-    
+    <p>日夜主題切換 · 實時跳錶 · 自動歸零</p>
+    <button id="themeToggleBtn" class="btn-theme-toggle" onclick="toggleTheme()">☕ 深焙</button>
   </header>
 
   <div class="container">
     
     <div class="card" style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
       <label style="margin: 0; font-size: 0.9rem;">保障基本時薪 ($/小時):</label>
-      <input type="number" id="hourlyRate" value="245" style="width: 85px; padding: 4px 8px; text-align: right;" onchange="saveRate()">
+      <input type="number" id="hourlyRate" value="245" style="width: 85px; padding: 4px 8px; text-align: right; margin-bottom: 0;" onchange="saveRate()">
     </div>
 
-    <!-- 看板 (3 欄) 這裡的數字會依照日期篩選連動 -->
+    <!-- 看板 -->
     <div class="dashboard">
       <div class="dash-box">
         <span>累積單數/時間</span>
@@ -315,11 +384,11 @@
       </form>
     </div>
 
-    <!-- 🔥 歷史明細與日期篩選器 -->
+    <!-- 歷史明細與日期篩選器 -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 4px 8px 4px;">
-      <span style="font-weight: 800; font-size: 0.95rem; color: #111;">📅 跑單紀錄</span>
+      <span style="font-weight: 800; font-size: 0.95rem; color: var(--text);">📅 跑單紀錄</span>
       <div style="display: flex; gap: 6px; align-items: center;">
-        <select id="dateFilter" onchange="changeDateFilter()" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; font-weight: 700; background: #fff;"></select>
+        <select id="dateFilter" onchange="changeDateFilter()" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; font-weight: 700;"></select>
         <button class="btn-sm" onclick="exportCSV()">匯出 CSV</button>
       </div>
     </div>
@@ -328,9 +397,32 @@
   </div>
 
   <script>
+    // 🔥 主題切換邏輯
+    let currentTheme = localStorage.getItem('delivery_theme') || 'light';
+    
+    function applyTheme(theme) {
+      const btn = document.getElementById('themeToggleBtn');
+      if (theme === 'dark-roast') {
+        document.body.setAttribute('data-theme', 'dark-roast');
+        btn.innerHTML = '☀️ 日間';
+      } else {
+        document.body.removeAttribute('data-theme');
+        btn.innerHTML = '☕ 深焙';
+      }
+    }
+
+    function toggleTheme() {
+      currentTheme = currentTheme === 'light' ? 'dark-roast' : 'light';
+      localStorage.setItem('delivery_theme', currentTheme);
+      applyTheme(currentTheme);
+    }
+    
+    // 初始化套用主題
+    applyTheme(currentTheme);
+
     let orderCount = 0;
     const MAX_ORDERS = 3;
-    let currentFilter = null; // 紀錄目前選擇的日期
+    let currentFilter = null; 
 
     let hourOptionsHTML = '';
     let minOptionsHTML = '';
@@ -369,7 +461,7 @@
         </div>
 
         <div class="form-group">
-          <label>行程費用 ($)</label>
+          <label>實收基本車資 ($)</label>
           <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
         </div>
 
@@ -379,7 +471,7 @@
             <select id="startH_${index}" onchange="markStarted(${index})">${hourOptionsHTML}</select>
             <span>:</span>
             <select id="startM_${index}" onchange="markStarted(${index})">${minOptionsHTML}</select>
-            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">當前時間</button>
+            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">抓當前時間</button>
           </div>
         </div>
 
@@ -395,11 +487,10 @@
             <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select>
             <span>:</span>
             <select id="endM_${index}" onchange="markEnded(${index})">${minOptionsHTML}</select>
-            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">當前時間</button>
+            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">抓當前時間</button>
           </div>
         </div>
 
-        <!-- 計算並自動存檔按鈕 -->
         <button type="button" class="btn-calc-single" onclick="calculateAndSaveOrder(${index})">⚡ 計算此單補差額 (自動存檔)</button>
 
         <div id="calc_badge_${index}" class="calc-result-badge"></div>
@@ -430,7 +521,6 @@
       document.getElementById(`calc_badge_${index}`).style.display = 'none';
     }
 
-    // 每秒更新跳錶
     setInterval(() => {
       const blocks = document.querySelectorAll('.order-block');
       const rate = parseFloat(document.getElementById('hourlyRate').value) || 245;
@@ -485,7 +575,6 @@
       });
     }, 1000);
 
-    // 🔥 儲存並自動歸零
     function calculateAndSaveOrder(index) {
       const basePayInput = document.getElementById(`basePay_${index}`);
       const basePayVal = parseFloat(basePayInput.value);
@@ -528,7 +617,6 @@
       const titleSpan = document.querySelector(`#order_block_${index} .order-title`);
       const orderTitle = titleSpan ? titleSpan.textContent : '外送訂單';
 
-      // 存入陣列與 localStorage
       records.unshift({
         id: Date.now(),
         date: dateStr,
@@ -542,10 +630,8 @@
 
       localStorage.setItem('delivery_records', JSON.stringify(records));
       
-      // 切換回當天的視圖，確保儲存後一定看得到這單
       currentFilter = dateStr;
 
-      // 🔥 介面歸零重置
       basePayInput.value = '';
       document.getElementById(`startH_${index}`).value = '00';
       document.getElementById(`startM_${index}`).value = '00';
@@ -557,7 +643,6 @@
       block.dataset.ended = 'false';
       document.getElementById(`live_panel_${index}`).style.display = 'none';
 
-      // 顯示成功提示（直到下次輸入時隱藏）
       const badge = document.getElementById(`calc_badge_${index}`);
       badge.className = 'calc-result-badge success';
       badge.innerHTML = `
@@ -642,7 +727,6 @@
       }
     }
 
-    // 處理日期篩選器變更
     function changeDateFilter() {
       currentFilter = document.getElementById('dateFilter').value;
       render();
@@ -657,9 +741,8 @@
       
       if (currentFilter === null) currentFilter = todayStr;
 
-      // 更新日期下拉選單
       let dates = [...new Set(records.map(r => r.date))];
-      if (!dates.includes(todayStr)) dates.unshift(todayStr); // 確保選單裡有今天
+      if (!dates.includes(todayStr)) dates.unshift(todayStr); 
       
       const filterSel = document.getElementById('dateFilter');
       filterSel.innerHTML = '<option value="ALL">全部歷史紀錄</option>';
@@ -671,7 +754,6 @@
       });
       filterSel.value = currentFilter;
 
-      // 依據選擇的日期過濾資料
       let filteredRecords = records;
       if (currentFilter !== 'ALL') {
         filteredRecords = records.filter(r => r.date === currentFilter);
@@ -682,7 +764,7 @@
       let totalShortage = 0;
 
       if (filteredRecords.length === 0) {
-        listEl.innerHTML = `<div style="text-align: center; color: #999; padding: 24px 0; font-weight:bold;">此日期尚無紀錄</div>`;
+        listEl.innerHTML = `<div style="text-align: center; color: var(--sub); padding: 24px 0; font-weight:bold;">此日期尚無紀錄</div>`;
       } else {
         filteredRecords.forEach(r => {
           totalMinutes += r.duration;
@@ -693,7 +775,7 @@
           card.className = 'item-card';
           card.innerHTML = `
             <div class="item-info">
-              <div class="title">${r.orderTitle || '外送訂單'} <span style="font-size:0.8rem; color:#666;">(${r.date})</span></div>
+              <div class="title">${r.orderTitle || '外送訂單'} <span style="font-size:0.8rem; color:var(--sub);">(${r.date})</span></div>
               <div class="detail">${r.startTime} ➜ ${r.endTime} (共 ${r.duration} 分鐘)</div>
               <div class="detail">實收車資: $${r.basePay}</div>
             </div>
@@ -710,13 +792,11 @@
         });
       }
 
-      // 🔥 看板的數字只會顯示「目前選定日期」的總計
       document.getElementById('totalOrders').innerText = `${filteredRecords.length} 單 / ${totalMinutes}分`;
       document.getElementById('totalBasePay').innerText = `$${Math.round(totalBasePay)}`;
       document.getElementById('totalShortage').innerText = `$${Math.round(totalShortage)}`;
     }
 
-    // 匯出功能也改為匯出「當前選定日期」或「全部」
     function exportCSV() {
       let filteredRecords = records;
       if (currentFilter !== 'ALL') {
