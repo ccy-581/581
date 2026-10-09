@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>外送員補差額記帳本</title>
   <style>
-    /* ☀️ 預設日間模式 (高對比白色) */
+    /* ☀️ 預設日間模式  */
     :root {
       --primary: #00A862;
       --primary-dark: #007D48;
@@ -36,7 +36,7 @@
       --live-panel-bg: #111111;
     }
 
-    /* ☕ 深焙咖啡模式 (Dark Roast) */
+    /* ☕ 深焙咖啡模式  */
     [data-theme="dark-roast"] {
       --primary: #F59E0B;       
       --primary-dark: #D97706;  
@@ -350,7 +350,7 @@
 
   <header>
     <h1>外送員補差額記帳本</h1>
-    <p>日夜主題切換 · 實時跳錶 · 自動歸零</p>
+    
     <button id="themeToggleBtn" class="btn-theme-toggle" onclick="toggleTheme()">☕ 深焙</button>
   </header>
 
@@ -368,11 +368,11 @@
         <strong id="totalOrders">0單/0分</strong>
       </div>
       <div class="dash-box blue">
-        <span>累積跑單金額</span>
+        <span>跑單金額</span>
         <strong class="money-blue" id="totalBasePay">$0</strong>
       </div>
       <div class="dash-box red">
-        <span>累積應補差額</span>
+        <span>應補差額</span>
         <strong class="money-red" id="totalShortage">$0</strong>
       </div>
     </div>
@@ -461,7 +461,7 @@
         </div>
 
         <div class="form-group">
-          <label>實收基本車資 ($)</label>
+          <label>行程費用 ($)</label>
           <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
         </div>
 
@@ -471,11 +471,11 @@
             <select id="startH_${index}" onchange="markStarted(${index})">${hourOptionsHTML}</select>
             <span>:</span>
             <select id="startM_${index}" onchange="markStarted(${index})">${minOptionsHTML}</select>
-            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">抓當前時間</button>
+            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">當前時間</button>
           </div>
         </div>
 
-        <!-- 實時跳錶面板 -->
+        <!-- 即時跳錶面板 -->
         <div class="live-panel" id="live_panel_${index}">
           <div>⏱️ 耗時: <strong id="live_time_${index}">00:00</strong></div>
           <div>💰 補差: <strong id="live_money_${index}">--</strong></div>
@@ -487,7 +487,7 @@
             <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select>
             <span>:</span>
             <select id="endM_${index}" onchange="markEnded(${index})">${minOptionsHTML}</select>
-            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">抓當前時間</button>
+            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">當前時間</button>
           </div>
         </div>
 
