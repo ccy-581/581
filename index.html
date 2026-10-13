@@ -34,9 +34,16 @@
       --header-bg: #00A862;
       --header-text: #FFFFFF;
       --live-panel-bg: #111111;
+      
+      /* 日間模式專屬按鈕顏色 */
+      --time-btn-text: #007D48;
+      --time-btn-border: #00A862;
+      --time-btn-active-text: #FFFFFF;
+      --add-btn-text: #007D48;
+      --add-btn-border: #00A862;
     }
 
-    /* ☕ 深焙咖啡模式 (Dark Roast) */
+    /* ☕ 深焙咖啡模式 (Dark Roast) - 戶外高對比版 */
     [data-theme="dark-roast"] {
       --primary: #F59E0B;       
       --primary-dark: #D97706;  
@@ -44,8 +51,8 @@
       --card: #44403C;          
       --text: #FAF8F5;          
       --sub: #D6D3D1;           
-      --danger: #EF4444;        
-      --info: #10B981;          
+      --danger: #FF5252;        /* 🔥 應補差額：改用高亮紅 */
+      --info: #00FF66;          /* 🔥 跑單金額：改用螢光綠 */
       --border: #57534E;        
       --order-bg: #3A3532;      
       --input-bg: #1C1917;      
@@ -65,6 +72,13 @@
       --header-bg: #D97706;
       --header-text: #FFFFFF;
       --live-panel-bg: #111111;
+
+      /* 🔥 深焙模式專屬：高亮度按鈕顏色 */
+      --time-btn-text: #FFE600; /* 當前時間按鈕：亮黃字 */
+      --time-btn-border: #FFE600; /* 當前時間按鈕：亮黃框 */
+      --time-btn-active-text: #111111; /* 按下時字體變黑 */
+      --add-btn-text: #FF9100; /* 新增夾單按鈕：亮橘字 */
+      --add-btn-border: #FF9100; /* 新增夾單按鈕：亮橘框 */
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -206,19 +220,25 @@
       font-weight: 900;
       color: var(--text);
     }
+
+    /* 🔥 抓當前時間按鈕 (套用新變數) */
     .btn-time-now {
       background: var(--btn-light-bg);
-      color: var(--primary-dark);
-      border: 1px solid var(--primary);
+      color: var(--time-btn-text);
+      border: 1px solid var(--time-btn-border);
       padding: 0 10px;
       height: 42px;
       border-radius: 8px;
       font-size: 0.85rem;
-      font-weight: 700;
+      font-weight: 800;
       white-space: nowrap;
       cursor: pointer;
+      transition: background 0.2s, color 0.2s;
     }
-    .btn-time-now:active { background: var(--primary); color: white; }
+    .btn-time-now:active { 
+      background: var(--time-btn-border); 
+      color: var(--time-btn-active-text); 
+    }
 
     .live-panel {
       background: var(--live-panel-bg);
@@ -269,11 +289,12 @@
       color: var(--result-covered-text);
     }
 
+    /* 🔥 新增夾單按鈕 (套用新變數) */
     .btn-add-batch {
       width: 100%;
       background: var(--card);
-      color: var(--primary-dark);
-      border: 2px dashed var(--primary);
+      color: var(--add-btn-text);
+      border: 2px dashed var(--add-btn-border);
       padding: 12px;
       border-radius: 8px;
       margin-bottom: 12px;
@@ -387,7 +408,7 @@
   </div>
 
   <script>
-    // 🔥 主題切換邏輯
+    // 主題切換邏輯
     let currentTheme = localStorage.getItem('delivery_theme') || 'light';
     
     function applyTheme(theme) {
@@ -563,7 +584,7 @@
       });
     }, 1000);
 
-    // 🔥 計算並存檔 (包含自動關閉夾單邏輯)
+    // 計算並存檔 (包含自動關閉夾單邏輯)
     function calculateAndSaveOrder(index) {
       const basePayInput = document.getElementById(`basePay_${index}`);
       const basePayVal = parseFloat(basePayInput.value);
@@ -621,18 +642,16 @@
       localStorage.setItem('delivery_records', JSON.stringify(records));
       currentFilter = dateStr;
 
-      // 🔥 判斷是否為夾單 (非畫面上第一個區塊)
+      // 判斷是否為夾單
       const blocks = Array.from(document.querySelectorAll('#ordersContainer .order-block'));
       const isFirstBlock = (blocks.length > 0 && blocks[0].id === `order_block_${index}`);
 
       if (!isFirstBlock) {
-        // 如果是夾單 (第 2 或第 3 單)，存檔後直接刪除該視窗
         removeOrderBlock(index);
-        render(); // 更新下方歷史明細與總計看板
-        return; // 結束執行
+        render(); 
+        return; 
       }
 
-      // 如果是「第 1 單」，則清空表單留在畫面上準備接下一單
       basePayInput.value = '';
       document.getElementById(`startH_${index}`).value = '00';
       document.getElementById(`startM_${index}`).value = '00';
