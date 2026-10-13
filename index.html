@@ -340,7 +340,7 @@
 
   <header>
     <h1>外送員補差額記帳本</h1>
-    <p>夾單自動關閉 · 實時跳錶 · 紀錄查詢</p>
+    
     <button id="themeToggleBtn" class="btn-theme-toggle" onclick="toggleTheme()">☕ 深焙</button>
   </header>
 
@@ -354,15 +354,15 @@
     <!-- 看板 -->
     <div class="dashboard">
       <div class="dash-box">
-        <span>累積單數/時間</span>
+        <span>單數/時間</span>
         <strong id="totalOrders">0單/0分</strong>
       </div>
       <div class="dash-box blue">
-        <span>累積跑單金額</span>
+        <span>跑單金額</span>
         <strong class="money-blue" id="totalBasePay">$0</strong>
       </div>
       <div class="dash-box red">
-        <span>累積應補差額</span>
+        <span>應補差額</span>
         <strong class="money-red" id="totalShortage">$0</strong>
       </div>
     </div>
@@ -450,7 +450,7 @@
         </div>
 
         <div class="form-group">
-          <label>實收基本車資 ($)</label>
+          <label>行程費用 ($)</label>
           <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
         </div>
 
@@ -460,7 +460,7 @@
             <select id="startH_${index}" onchange="markStarted(${index})">${hourOptionsHTML}</select>
             <span>:</span>
             <select id="startM_${index}" onchange="markStarted(${index})">${minOptionsHTML}</select>
-            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">抓當前時間</button>
+            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">當前時間</button>
           </div>
         </div>
 
@@ -475,7 +475,7 @@
             <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select>
             <span>:</span>
             <select id="endM_${index}" onchange="markEnded(${index})">${minOptionsHTML}</select>
-            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">抓當前時間</button>
+            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">當前時間</button>
           </div>
         </div>
 
