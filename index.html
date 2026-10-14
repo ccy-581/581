@@ -290,7 +290,7 @@
 
   <header>
     <h1>外送員補差額記帳本</h1>
-    
+    <p>自適應版面 · 趨勢圖表 · JSON 雲端備份</p>
     <button id="themeToggleBtn" class="btn-theme-toggle" onclick="toggleTheme()">☕ 深焙</button>
   </header>
 
@@ -304,15 +304,15 @@
     <!-- 看板 -->
     <div class="dashboard">
       <div class="dash-box">
-        <span>單數/時間</span>
+        <span>累積單數/時間</span>
         <strong id="totalOrders">0單/0分</strong>
       </div>
       <div class="dash-box blue">
-        <span>跑單金額</span>
+        <span>累積跑單金額</span>
         <strong class="money-blue" id="totalBasePay">$0</strong>
       </div>
       <div class="dash-box red">
-        <span>應補差額</span>
+        <span>累積應補差額</span>
         <strong class="money-red" id="totalShortage">$0</strong>
       </div>
     </div>
@@ -325,7 +325,7 @@
       </form>
     </div>
 
-    <!-- 🔥 近 7 日週薪趨勢圖 (移到這裡！) -->
+    <!-- 🔥 近 7 日週薪趨勢圖 -->
     <div class="card" id="chartCard">
       <div style="font-weight: 800; font-size: 0.95rem; color: var(--text);">📊 近 7 日跑單趨勢</div>
       <div class="chart-container" id="weeklyChart"></div>
@@ -416,7 +416,7 @@
           ${!isFirst ? `<button type="button" class="btn-remove-order" onclick="removeOrderBlock(${index})">✕ 移除此夾單</button>` : ''}
         </div>
         <div class="form-group">
-          <label>行程費用 ($)</label>
+          <label>實收基本車資 ($)</label>
           <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
         </div>
         <div class="form-group">
@@ -425,7 +425,7 @@
             <select id="startH_${index}" onchange="markStarted(${index})">${hourOptionsHTML}</select>
             <span>:</span>
             <select id="startM_${index}" onchange="markStarted(${index})">${minOptionsHTML}</select>
-            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">當前時間</button>
+            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">抓當前時間</button>
           </div>
         </div>
         <div class="live-panel" id="live_panel_${index}">
@@ -438,7 +438,7 @@
             <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select>
             <span>:</span>
             <select id="endM_${index}" onchange="markEnded(${index})">${minOptionsHTML}</select>
-            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">當前時間</button>
+            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">抓當前時間</button>
           </div>
         </div>
         <button type="button" class="btn-calc-single" onclick="calculateAndSaveOrder(${index})">⚡ 計算此單補差額 (自動存檔)</button>
@@ -744,19 +744,32 @@
       renderChart();
     }
 
+    // 🔥 修改這裡：匯出 CSV 改用 Blob 方式，解決小米瀏覽器 .dat 及亂碼問題
     function exportCSV() {
       let filteredRecords = records;
-      if (currentFilter !== 'ALL') filteredRecords = records.filter(r => r.date === currentFilter);
+      if (currentFilter !== 'ALL') {
+        filteredRecords = records.filter(r => r.date === currentFilter);
+      }
       if (filteredRecords.length === 0) return alert('此日期無資料可匯出');
-      let csv = "data:text/csv;charset=utf-8,\uFEFF";
-      csv += "日期,組別,接單時間,送達時間,耗時(分),車資,應補差額\n";
-      filteredRecords.forEach(r => { csv += `"${r.date}","${r.orderTitle || '一般'}","${r.startTime}","${r.endTime}",${r.duration},${r.basePay},${r.shortage}\n`; });
-      const uri = encodeURI(csv);
+      
+      let csvContent = "日期,組別,接單時間,送達時間,耗時(分),車資,應補差額\n";
+      filteredRecords.forEach(r => { 
+        csvContent += `"${r.date}","${r.orderTitle || '一般'}","${r.startTime}","${r.endTime}",${r.duration},${r.basePay},${r.shortage}\n`; 
+      });
+
+      // 使用 Blob 並加上 BOM (\uFEFF) 強制設定格式為 csv 與 utf-8
+      const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      
       const link = document.createElement("a");
-      link.href = uri;
+      link.href = url;
       const fileNameDate = currentFilter === 'ALL' ? '全部歷史' : currentFilter.replace('/', '-');
       link.download = `外送補差額_${fileNameDate}.csv`;
+      
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
 
     addOrderBlock();
