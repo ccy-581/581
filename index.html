@@ -160,8 +160,8 @@
     .dash-box strong.money-blue { color: var(--info); }
     .dash-box strong.money-red { color: var(--danger); }
 
-    /* 趨勢圖表樣式 */
-    .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 130px; padding-top: 15px; gap: 4px; }
+    /* 🔥 修正圖表樣式：加大高度並增加標題距離，防止金額數字重疊 */
+    .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 150px; margin-top: 16px; gap: 4px; }
     .chart-bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; justify-content: flex-end; }
     .chart-bar-wrapper { width: 100%; max-width: 24px; display: flex; flex-direction: column; justify-content: flex-end; height: 90px; }
     .chart-bar-short { background: var(--chart-short); width: 100%; border-radius: 4px 4px 0 0; transition: height 0.5s; opacity: 0.9; }
@@ -324,9 +324,10 @@
       </form>
     </div>
 
-    <!-- 🔥 改為「本週跑單趨勢」圖表 -->
+    <!-- 本週跑單趨勢圖 -->
     <div class="card" id="chartCard">
-      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text);">📊 本週跑單趨勢 (週一至週日)</div>
+      <!-- 🔥 加入 margin-bottom 推開下方圖表數字 -->
+      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 12px;">📊 本週跑單趨勢 (週一至週日)</div>
       <div class="chart-container" id="weeklyChart"></div>
     </div>
 
@@ -359,6 +360,22 @@
   </div>
 
   <script>
+    // 工具函數：觸發手機震動
+    function triggerVibrate(ms = 30) {
+      if (navigator.vibrate) {
+        navigator.vibrate(ms);
+      }
+    }
+
+    // 跨夜班表邏輯 (清晨4點前算昨天)
+    function getShiftDate(dateObj = new Date()) {
+      const shiftDate = new Date(dateObj);
+      if (shiftDate.getHours() < 4) {
+        shiftDate.setDate(shiftDate.getDate() - 1);
+      }
+      return `${shiftDate.getMonth() + 1}/${shiftDate.getDate()}`;
+    }
+
     // 主題切換邏輯
     let currentTheme = localStorage.getItem('delivery_theme') || 'light';
     function applyTheme(theme) {
@@ -372,6 +389,7 @@
       }
     }
     function toggleTheme() {
+      triggerVibrate(20);
       currentTheme = currentTheme === 'light' ? 'dark-roast' : 'light';
       localStorage.setItem('delivery_theme', currentTheme);
       applyTheme(currentTheme);
@@ -394,6 +412,7 @@
     }
 
     function addOrderBlock() {
+      triggerVibrate(30);
       const container = document.getElementById('ordersContainer');
       const currentBlocks = container.getElementsByClassName('order-block');
       if (currentBlocks.length >= MAX_ORDERS) {
@@ -507,7 +526,7 @@
     }, 1000);
 
     function calculateAndSaveOrder(index) {
-      if(navigator.vibrate) navigator.vibrate(50); 
+      triggerVibrate(60); 
       const basePayInput = document.getElementById(`basePay_${index}`);
       const basePayVal = parseFloat(basePayInput.value);
       if (isNaN(basePayVal) || basePayVal <= 0) { alert('請先輸入此單的實收車資！'); basePayInput.focus(); return; }
@@ -527,8 +546,9 @@
       }
       const sH_str = sh.toString().padStart(2, '0'); const sM_str = sm.toString().padStart(2, '0');
       const eH_str = eh.toString().padStart(2, '0'); const eM_str = em.toString().padStart(2, '0');
-      const now = new Date();
-      const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
+      
+      const dateStr = getShiftDate();
+      
       const titleSpan = document.querySelector(`#order_block_${index} .order-title`);
       const orderTitle = titleSpan ? titleSpan.textContent : '外送訂單';
 
@@ -555,6 +575,7 @@
     }
 
     function removeOrderBlock(index) {
+      triggerVibrate(30);
       const block = document.getElementById(`order_block_${index}`);
       if (block) { block.remove(); updateOrderTitles(); updateAddButton(); }
     }
@@ -571,7 +592,7 @@
       else { btn.style.display = 'block'; btn.textContent = `＋ 新增夾單 (目前 ${count}/${MAX_ORDERS} 單)`; }
     }
     function setNow(type, index) {
-      if(navigator.vibrate) navigator.vibrate(30);
+      triggerVibrate(40);
       const now = new Date();
       const h = now.getHours().toString().padStart(2, '0'); const m = now.getMinutes().toString().padStart(2, '0');
       if (type === 'start') {
@@ -598,25 +619,23 @@
       localStorage.setItem('delivery_rate', rate); render();
     }
     function deleteRecord(id) {
+      triggerVibrate(30);
       if (confirm('確定刪除這筆紀錄？')) { records = records.filter(r => r.id !== id); localStorage.setItem('delivery_records', JSON.stringify(records)); render(); }
     }
-    function changeDateFilter() { currentFilter = document.getElementById('dateFilter').value; render(); }
+    function changeDateFilter() { triggerVibrate(20); currentFilter = document.getElementById('dateFilter').value; render(); }
 
-    // 🔥 全新修改：固定顯示本週 (週一至週日) 的趨勢圖表
     function renderChart() {
       const chartEl = document.getElementById('weeklyChart');
       if (!chartEl) return;
       chartEl.innerHTML = '';
       
-      // 取得基準時間，並加上清晨 4 點跨夜邏輯 (4點前算昨天)
       const baseDate = new Date();
       if (baseDate.getHours() < 4) {
         baseDate.setDate(baseDate.getDate() - 1);
       }
 
-      // 找出本週的「星期一」
       let dayOfWeek = baseDate.getDay(); 
-      let distanceToMonday = (dayOfWeek + 6) % 7; // 將週日(0)轉為6，週一(1)轉為0，以此類推
+      let distanceToMonday = (dayOfWeek + 6) % 7; 
       
       let mondayDate = new Date(baseDate);
       mondayDate.setDate(baseDate.getDate() - distanceToMonday);
@@ -624,7 +643,6 @@
       let days = [];
       let dayNames = ['一', '二', '三', '四', '五', '六', '日'];
       
-      // 固定產生週一到週日的 7 天日期陣列
       for (let i = 0; i < 7; i++) { 
         const d = new Date(mondayDate); 
         d.setDate(mondayDate.getDate() + i); 
@@ -673,6 +691,7 @@
     }
 
     function backupJSON() {
+      triggerVibrate(30);
       if (records.length === 0) return alert('目前尚無資料可備份。');
       const dataStr = JSON.stringify(records);
       const blob = new Blob([dataStr], { type: 'application/json' });
@@ -686,6 +705,7 @@
     }
 
     function restoreJSON(event) {
+      triggerVibrate(40);
       const file = event.target.files[0];
       if (!file) return;
       const reader = new FileReader();
@@ -713,8 +733,9 @@
     function render() {
       const listEl = document.getElementById('recordsList');
       listEl.innerHTML = '';
-      const today = new Date();
-      const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
+      
+      const todayStr = getShiftDate();
+      
       if (currentFilter === null) currentFilter = todayStr;
 
       let dates = [...new Set(records.map(r => r.date))];
@@ -766,6 +787,7 @@
     }
 
     function exportCSV() {
+      triggerVibrate(30);
       let filteredRecords = records;
       if (currentFilter !== 'ALL') {
         filteredRecords = records.filter(r => r.date === currentFilter);
