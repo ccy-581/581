@@ -534,7 +534,7 @@
           if (block.dataset.voiceReminded !== 'true') {
             block.dataset.voiceReminded = 'true'; // 標記為已播放
             if ('speechSynthesis' in window) {
-              const utterance = new SpeechSynthesisUtterance('阿ㄅ，完成訂單後，記得按結束喔');
+              const utterance = new SpeechSynthesisUtterance('阿ㄅ，完成訂單後，記得按結束喔喔喔');
               utterance.lang = 'zh-TW';
               utterance.rate = 1.1; // 稍微調快一點點語速，聽起來比較俐落
               window.speechSynthesis.speak(utterance);
