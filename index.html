@@ -271,21 +271,19 @@
     .diff-badge { font-size: 0.85rem; padding: 3px 8px; border-radius: 4px; background: var(--badge-bg); color: var(--badge-text); font-weight: 700; display: inline-block; }
     .diff-badge.needs-pay { background: var(--badge-pay-bg); color: var(--danger); }
     
-    /* 🔥 編輯與刪除按鈕樣式 */
     .action-btns { display: flex; align-items: center; gap: 8px; }
     .edit-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--info); padding: 4px; transition: opacity 0.2s; }
     .edit-btn:hover { opacity: 0.7; }
     .del-btn { color: var(--sub); background: none; border: none; font-size: 1.4rem; padding-left: 4px; cursor: pointer; transition: color 0.2s; }
     .del-btn:hover { color: var(--danger); }
 
-    /* 閃爍動畫特效 */
-    @keyframes flash-warning {
-      0% { opacity: 1; color: var(--danger); }
-      50% { opacity: 0.2; color: var(--danger); }
-      100% { opacity: 1; color: var(--danger); }
-    }
+    /* 🔥 取消了閃爍動畫，改為安靜的靜態紅字提醒 */
     .reminder-text {
-      display: none; font-size: 0.85rem; font-weight: 800; animation: flash-warning 1.2s infinite; margin-left: 8px;
+      display: none; 
+      font-size: 0.85rem; 
+      font-weight: 800; 
+      color: var(--danger);
+      margin-left: 8px;
     }
 
     @media (max-width: 430px) {
@@ -372,7 +370,7 @@
 
   </div>
 
-  <!-- 🔥 編輯歷史紀錄的彈出視窗 (Modal) -->
+  <!-- 編輯歷史紀錄的彈出視窗 (Modal) -->
   <div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(3px);">
     <div class="card" style="width: 90%; max-width: 400px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin: 0;">
       <h3 style="margin-bottom: 16px; color: var(--primary); font-weight: 800;">✏️ 修正歷史訂單</h3>
@@ -400,7 +398,7 @@
       </div>
       
       <div style="display: flex; gap: 10px; margin-top: 24px;">
-        <button type="button" class="btn-sm" style="flex: 1; background: var(--primary); color: #FFF; border: none; padding: 12px; font-size: 1rem; font-weight: 800;" onclick="saveEdit()">💾 重新結算並儲存</button>
+        <button type="button" class="btn-sm" style="flex: 1; background: var(--primary); color: #FFF; border: none; padding: 12px; font-size: 1rem; font-weight: 800;" onclick="saveEdit()">💾 重新結算</button>
         <button type="button" class="btn-sm" style="flex: 0.5; padding: 12px; font-size: 1rem;" onclick="closeEditModal()">取消</button>
       </div>
     </div>
@@ -441,7 +439,6 @@
       const v = i.toString().padStart(2, '0'); minOptionsHTML += `<option value="${v}">${v} 分</option>`;
     }
 
-    // 初始化編輯視窗的下拉選單
     document.getElementById('edit_startH').innerHTML = hourOptionsHTML;
     document.getElementById('edit_startM').innerHTML = minOptionsHTML;
     document.getElementById('edit_endH').innerHTML = hourOptionsHTML;
@@ -457,6 +454,10 @@
       const isFirst = (currentBlocks.length === 0); const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
 
       const block = document.createElement('div'); block.className = 'order-block'; block.id = `order_block_${index}`;
+      
+      // 🔥 初始化這筆訂單的「語音已播放」標記為 false
+      block.dataset.voiceReminded = 'false';
+
       block.innerHTML = `
         <div class="order-block-header">
           <span class="order-title">${titleText}</span>
@@ -479,7 +480,7 @@
           <div>💰 補差: <strong id="live_money_${index}">--</strong></div>
         </div>
         <div class="form-group" style="margin-bottom:0;">
-          <label>送達時間 (結束) <span id="reminder_${index}" class="reminder-text">⚠️ 記得按結束！</span></label>
+          <label>送達時間 (結束) <span id="reminder_${index}" class="reminder-text">⚠️ 已超過 10 分鐘</span></label>
           <div class="time-picker-row">
             <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select><span>:</span>
             <select id="endM_${index}" onchange="markEnded(${index})">${minOptionsHTML}</select>
@@ -496,6 +497,8 @@
       const block = document.getElementById(`order_block_${index}`);
       if (block) {
         block.dataset.started = 'true'; block.dataset.ended = 'false';
+        // 重新開始計時時，重置語音狀態
+        block.dataset.voiceReminded = 'false';
         document.getElementById(`live_panel_${index}`).style.display = 'flex'; hideBadge(index);
       }
     }
@@ -521,10 +524,22 @@
         const totalSeconds = Math.floor(diffMs / 1000); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60;
         document.getElementById(`live_time_${index}`).textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
         
-        const reminderEl = document.getElementById(`reminder_${index}`);
-        if (reminderEl) {
-          if (totalSeconds >= 600) reminderEl.style.display = 'inline-block';
-          else reminderEl.style.display = 'none';
+        // 🔥 10分鐘 (600秒) 提醒邏輯
+        if (totalSeconds >= 600) {
+          // 1. 顯示靜態提示字
+          const reminderEl = document.getElementById(`reminder_${index}`);
+          if (reminderEl) reminderEl.style.display = 'inline-block';
+          
+          // 2. 觸發單次語音提示
+          if (block.dataset.voiceReminded !== 'true') {
+            block.dataset.voiceReminded = 'true'; // 標記為已播放
+            if ('speechSynthesis' in window) {
+              const utterance = new SpeechSynthesisUtterance('阿ㄅ，完成訂單後，記得按結束喔');
+              utterance.lang = 'zh-TW';
+              utterance.rate = 1.1; // 稍微調快一點點語速，聽起來比較俐落
+              window.speechSynthesis.speak(utterance);
+            }
+          }
         }
 
         const basePay = parseFloat(document.getElementById(`basePay_${index}`).value) || 0; const coveredMin = basePay / ratePerMin;
@@ -533,10 +548,10 @@
            liveMoney.textContent = "請輸入車資"; liveMoney.style.color = "#FFCA28"; panel.style.borderLeftColor = "#FFCA28";
         } else if ((totalSeconds / 60) > coveredMin) {
            const overMin = (totalSeconds / 60) - coveredMin; const shortage = overMin * ratePerMin;
-           liveMoney.textContent = `+$${shortage.toFixed(1)}`; liveMoney.style.color = "#FF5252"; panel.style.borderLeftColor = "#FF5252";
+           liveMoney.textContent = `+$${shortage.toFixed(1)}`; liveMoney.style.color = "var(--danger)"; panel.style.borderLeftColor = "var(--danger)";
         } else {
            const remainSecs = Math.floor((coveredMin * 60) - totalSeconds); const rMin = Math.floor(remainSecs / 60); const rSec = remainSecs % 60;
-           liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`; liveMoney.style.color = "#00FF66"; panel.style.borderLeftColor = "#00FF66";
+           liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`; liveMoney.style.color = "var(--info)"; panel.style.borderLeftColor = "var(--info)";
         }
       });
     }, 1000);
@@ -570,7 +585,8 @@
       basePayInput.value = ''; document.getElementById(`startH_${index}`).value = '00'; document.getElementById(`startM_${index}`).value = '00';
       document.getElementById(`endH_${index}`).value = '00'; document.getElementById(`endM_${index}`).value = '00';
       const block = document.getElementById(`order_block_${index}`);
-      block.dataset.started = 'false'; block.dataset.ended = 'false'; document.getElementById(`live_panel_${index}`).style.display = 'none';
+      block.dataset.started = 'false'; block.dataset.ended = 'false'; block.dataset.voiceReminded = 'false';
+      document.getElementById(`live_panel_${index}`).style.display = 'none';
       const badge = document.getElementById(`calc_badge_${index}`); badge.className = 'calc-result-badge success';
       badge.innerHTML = `<strong>✓ 儲存成功！剛才這單補差額：$${shortage} 元</strong><br><span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">格子已清空，可直接開始下一單！</span>`;
       render();
@@ -600,7 +616,6 @@
     function deleteRecord(id) { triggerVibrate(30); if (confirm('確定刪除這筆紀錄？')) { records = records.filter(r => r.id !== id); localStorage.setItem('delivery_records', JSON.stringify(records)); render(); } }
     function changeDateFilter() { triggerVibrate(20); currentFilter = document.getElementById('dateFilter').value; render(); }
 
-    // 🔥 呼叫編輯視窗
     function openEditModal(id) {
       triggerVibrate(30);
       const r = records.find(rec => rec.id === id);
@@ -620,13 +635,11 @@
       document.getElementById('editModal').style.display = 'flex';
     }
 
-    // 關閉編輯視窗
     function closeEditModal() {
       triggerVibrate(20);
       document.getElementById('editModal').style.display = 'none';
     }
 
-    // 🔥 儲存編輯並重新計算
     function saveEdit() {
       triggerVibrate(50);
       const id = parseInt(document.getElementById('edit_id').value, 10);
@@ -752,7 +765,6 @@
               <div class="detail">${r.startTime} ➜ ${r.endTime} (共 ${r.duration} 分鐘)</div>
               <div class="detail">實收車資: $${r.basePay}</div>
             </div>
-            <!-- 🔥 新增了編輯按鈕 -->
             <div class="action-btns">
               <div class="item-diff">
                 ${r.shortage > 0 ? `<span class="diff-badge needs-pay">補 $${r.shortage}</span>` : `<span class="diff-badge">達標</span>`}
