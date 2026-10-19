@@ -160,10 +160,9 @@
     .dash-box strong.money-blue { color: var(--info); }
     .dash-box strong.money-red { color: var(--danger); }
 
-    /* 🔥 修正圖表樣式：加大高度並增加標題距離，防止金額數字重疊 */
-    .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 150px; margin-top: 16px; gap: 4px; }
+    .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 160px; padding-top: 20px; gap: 4px; }
     .chart-bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; justify-content: flex-end; }
-    .chart-bar-wrapper { width: 100%; max-width: 24px; display: flex; flex-direction: column; justify-content: flex-end; height: 90px; }
+    .chart-bar-wrapper { width: 100%; max-width: 24px; display: flex; flex-direction: column; justify-content: flex-end; height: 100px; }
     .chart-bar-short { background: var(--chart-short); width: 100%; border-radius: 4px 4px 0 0; transition: height 0.5s; opacity: 0.9; }
     .chart-bar-base { background: var(--chart-base); width: 100%; border-radius: 4px 4px 0 0; transition: height 0.5s; margin-top: 1px; }
     .chart-label { font-size: 0.65rem; color: var(--sub); margin-top: 6px; font-weight: bold; }
@@ -271,8 +270,23 @@
     .item-diff { text-align: right; }
     .diff-badge { font-size: 0.85rem; padding: 3px 8px; border-radius: 4px; background: var(--badge-bg); color: var(--badge-text); font-weight: 700; display: inline-block; }
     .diff-badge.needs-pay { background: var(--badge-pay-bg); color: var(--danger); }
-    .del-btn { color: var(--sub); background: none; border: none; font-size: 1.4rem; padding-left: 10px; cursor: pointer; }
+    
+    /* 🔥 編輯與刪除按鈕樣式 */
+    .action-btns { display: flex; align-items: center; gap: 8px; }
+    .edit-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--info); padding: 4px; transition: opacity 0.2s; }
+    .edit-btn:hover { opacity: 0.7; }
+    .del-btn { color: var(--sub); background: none; border: none; font-size: 1.4rem; padding-left: 4px; cursor: pointer; transition: color 0.2s; }
     .del-btn:hover { color: var(--danger); }
+
+    /* 閃爍動畫特效 */
+    @keyframes flash-warning {
+      0% { opacity: 1; color: var(--danger); }
+      50% { opacity: 0.2; color: var(--danger); }
+      100% { opacity: 1; color: var(--danger); }
+    }
+    .reminder-text {
+      display: none; font-size: 0.85rem; font-weight: 800; animation: flash-warning 1.2s infinite; margin-left: 8px;
+    }
 
     @media (max-width: 430px) {
       .dashboard { gap: 4px; }
@@ -326,8 +340,7 @@
 
     <!-- 本週跑單趨勢圖 -->
     <div class="card" id="chartCard">
-      <!-- 🔥 加入 margin-bottom 推開下方圖表數字 -->
-      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 12px;">📊 本週跑單趨勢 (週一至週日)</div>
+      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 24px;">📊 本週跑單趨勢 (週一至週日)</div>
       <div class="chart-container" id="weeklyChart"></div>
     </div>
 
@@ -359,75 +372,91 @@
 
   </div>
 
-  <script>
-    // 工具函數：觸發手機震動
-    function triggerVibrate(ms = 30) {
-      if (navigator.vibrate) {
-        navigator.vibrate(ms);
-      }
-    }
+  <!-- 🔥 編輯歷史紀錄的彈出視窗 (Modal) -->
+  <div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(3px);">
+    <div class="card" style="width: 90%; max-width: 400px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin: 0;">
+      <h3 style="margin-bottom: 16px; color: var(--primary); font-weight: 800;">✏️ 修正歷史訂單</h3>
+      <input type="hidden" id="edit_id">
+      
+      <div class="form-group">
+        <label>實收基本車資 ($)</label>
+        <input type="number" id="edit_basePay" step="0.1" style="width:100%;">
+      </div>
+      
+      <div class="form-group">
+        <label>接單時間 (起始)</label>
+        <div class="time-picker-row">
+          <select id="edit_startH"></select><span>:</span>
+          <select id="edit_startM"></select>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>送達時間 (結束)</label>
+        <div class="time-picker-row">
+          <select id="edit_endH"></select><span>:</span>
+          <select id="edit_endM"></select>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 10px; margin-top: 24px;">
+        <button type="button" class="btn-sm" style="flex: 1; background: var(--primary); color: #FFF; border: none; padding: 12px; font-size: 1rem; font-weight: 800;" onclick="saveEdit()">💾 重新結算並儲存</button>
+        <button type="button" class="btn-sm" style="flex: 0.5; padding: 12px; font-size: 1rem;" onclick="closeEditModal()">取消</button>
+      </div>
+    </div>
+  </div>
 
-    // 跨夜班表邏輯 (清晨4點前算昨天)
+  <script>
+    function triggerVibrate(ms = 30) { if (navigator.vibrate) navigator.vibrate(ms); }
+
     function getShiftDate(dateObj = new Date()) {
       const shiftDate = new Date(dateObj);
-      if (shiftDate.getHours() < 4) {
-        shiftDate.setDate(shiftDate.getDate() - 1);
-      }
+      if (shiftDate.getHours() < 4) shiftDate.setDate(shiftDate.getDate() - 1);
       return `${shiftDate.getMonth() + 1}/${shiftDate.getDate()}`;
     }
 
-    // 主題切換邏輯
     let currentTheme = localStorage.getItem('delivery_theme') || 'light';
     function applyTheme(theme) {
       const btn = document.getElementById('themeToggleBtn');
       if (theme === 'dark-roast') {
-        document.body.setAttribute('data-theme', 'dark-roast');
-        btn.innerHTML = '☀️ 日間';
+        document.body.setAttribute('data-theme', 'dark-roast'); btn.innerHTML = '☀️ 日間';
       } else {
-        document.body.removeAttribute('data-theme');
-        btn.innerHTML = '☕ 深焙';
+        document.body.removeAttribute('data-theme'); btn.innerHTML = '☕ 深焙';
       }
     }
     function toggleTheme() {
       triggerVibrate(20);
       currentTheme = currentTheme === 'light' ? 'dark-roast' : 'light';
-      localStorage.setItem('delivery_theme', currentTheme);
-      applyTheme(currentTheme);
+      localStorage.setItem('delivery_theme', currentTheme); applyTheme(currentTheme);
     }
     applyTheme(currentTheme);
 
-    let orderCount = 0;
-    const MAX_ORDERS = 3;
-    let currentFilter = null; 
+    let orderCount = 0; const MAX_ORDERS = 3; let currentFilter = null; 
 
-    let hourOptionsHTML = '';
-    let minOptionsHTML = '';
+    let hourOptionsHTML = ''; let minOptionsHTML = '';
     for (let i = 0; i < 24; i++) {
-      const v = i.toString().padStart(2, '0');
-      hourOptionsHTML += `<option value="${v}">${v} 點</option>`;
+      const v = i.toString().padStart(2, '0'); hourOptionsHTML += `<option value="${v}">${v} 點</option>`;
     }
     for (let i = 0; i < 60; i++) {
-      const v = i.toString().padStart(2, '0');
-      minOptionsHTML += `<option value="${v}">${v} 分</option>`;
+      const v = i.toString().padStart(2, '0'); minOptionsHTML += `<option value="${v}">${v} 分</option>`;
     }
+
+    // 初始化編輯視窗的下拉選單
+    document.getElementById('edit_startH').innerHTML = hourOptionsHTML;
+    document.getElementById('edit_startM').innerHTML = minOptionsHTML;
+    document.getElementById('edit_endH').innerHTML = hourOptionsHTML;
+    document.getElementById('edit_endM').innerHTML = minOptionsHTML;
 
     function addOrderBlock() {
       triggerVibrate(30);
       const container = document.getElementById('ordersContainer');
       const currentBlocks = container.getElementsByClassName('order-block');
-      if (currentBlocks.length >= MAX_ORDERS) {
-        alert('目前最多只能夾 3 單！');
-        return;
-      }
-      orderCount++;
-      const index = orderCount;
-      const orderNum = currentBlocks.length + 1;
-      const isFirst = (currentBlocks.length === 0);
-      const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
+      if (currentBlocks.length >= MAX_ORDERS) { alert('目前最多只能夾 3 單！'); return; }
+      
+      orderCount++; const index = orderCount; const orderNum = currentBlocks.length + 1;
+      const isFirst = (currentBlocks.length === 0); const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
 
-      const block = document.createElement('div');
-      block.className = 'order-block';
-      block.id = `order_block_${index}`;
+      const block = document.createElement('div'); block.className = 'order-block'; block.id = `order_block_${index}`;
       block.innerHTML = `
         <div class="order-block-header">
           <span class="order-title">${titleText}</span>
@@ -440,8 +469,7 @@
         <div class="form-group">
           <label>接單時間 (起始)</label>
           <div class="time-picker-row">
-            <select id="startH_${index}" onchange="markStarted(${index})">${hourOptionsHTML}</select>
-            <span>:</span>
+            <select id="startH_${index}" onchange="markStarted(${index})">${hourOptionsHTML}</select><span>:</span>
             <select id="startM_${index}" onchange="markStarted(${index})">${minOptionsHTML}</select>
             <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">當前時間</button>
           </div>
@@ -451,10 +479,9 @@
           <div>💰 補差: <strong id="live_money_${index}">--</strong></div>
         </div>
         <div class="form-group" style="margin-bottom:0;">
-          <label>送達時間 (結束)</label>
+          <label>送達時間 (結束) <span id="reminder_${index}" class="reminder-text">⚠️ 記得按結束！</span></label>
           <div class="time-picker-row">
-            <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select>
-            <span>:</span>
+            <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select><span>:</span>
             <select id="endM_${index}" onchange="markEnded(${index})">${minOptionsHTML}</select>
             <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">當前時間</button>
           </div>
@@ -462,217 +489,203 @@
         <button type="button" class="btn-calc-single" onclick="calculateAndSaveOrder(${index})">⚡ 計算此單補差額 (自動存檔)</button>
         <div id="calc_badge_${index}" class="calc-result-badge"></div>
       `;
-      container.appendChild(block);
-      updateAddButton();
+      container.appendChild(block); updateAddButton();
     }
 
     function markStarted(index) {
       const block = document.getElementById(`order_block_${index}`);
       if (block) {
-        block.dataset.started = 'true';
-        block.dataset.ended = 'false';
-        document.getElementById(`live_panel_${index}`).style.display = 'flex';
-        hideBadge(index);
+        block.dataset.started = 'true'; block.dataset.ended = 'false';
+        document.getElementById(`live_panel_${index}`).style.display = 'flex'; hideBadge(index);
       }
     }
 
     function markEnded(index) {
       const block = document.getElementById(`order_block_${index}`);
       if (block) { block.dataset.ended = 'true'; }
+      const reminderEl = document.getElementById(`reminder_${index}`);
+      if (reminderEl) reminderEl.style.display = 'none';
     }
 
     function hideBadge(index) { document.getElementById(`calc_badge_${index}`).style.display = 'none'; }
 
     setInterval(() => {
       const blocks = document.querySelectorAll('.order-block');
-      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245;
-      const ratePerMin = rate / 60;
+      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245; const ratePerMin = rate / 60;
       blocks.forEach(block => {
         if (block.dataset.started !== 'true' || block.dataset.ended === 'true') return;
-        const index = block.id.replace('order_block_', '');
-        const startH_el = document.getElementById(`startH_${index}`);
-        if (!startH_el) return;
-        const sh = parseInt(startH_el.value, 10);
-        const sm = parseInt(document.getElementById(`startM_${index}`).value, 10);
-        const now = new Date();
-        const start = new Date();
-        start.setHours(sh, sm, 0, 0);
-        let diffMs = now.getTime() - start.getTime();
-        if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
-        const totalSeconds = Math.floor(diffMs / 1000);
-        const mins = Math.floor(totalSeconds / 60);
-        const secs = totalSeconds % 60;
+        const index = block.id.replace('order_block_', ''); const startH_el = document.getElementById(`startH_${index}`); if (!startH_el) return;
+        const sh = parseInt(startH_el.value, 10); const sm = parseInt(document.getElementById(`startM_${index}`).value, 10);
+        const now = new Date(); const start = new Date(); start.setHours(sh, sm, 0, 0);
+        let diffMs = now.getTime() - start.getTime(); if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
+        const totalSeconds = Math.floor(diffMs / 1000); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60;
         document.getElementById(`live_time_${index}`).textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
-        const basePay = parseFloat(document.getElementById(`basePay_${index}`).value) || 0;
-        const coveredMin = basePay / ratePerMin;
-        const liveMoney = document.getElementById(`live_money_${index}`);
-        const panel = document.getElementById(`live_panel_${index}`);
+        
+        const reminderEl = document.getElementById(`reminder_${index}`);
+        if (reminderEl) {
+          if (totalSeconds >= 600) reminderEl.style.display = 'inline-block';
+          else reminderEl.style.display = 'none';
+        }
+
+        const basePay = parseFloat(document.getElementById(`basePay_${index}`).value) || 0; const coveredMin = basePay / ratePerMin;
+        const liveMoney = document.getElementById(`live_money_${index}`); const panel = document.getElementById(`live_panel_${index}`);
         if (basePay === 0) {
-           liveMoney.textContent = "請輸入車資";
-           liveMoney.style.color = "#FFCA28"; panel.style.borderLeftColor = "#FFCA28";
+           liveMoney.textContent = "請輸入車資"; liveMoney.style.color = "#FFCA28"; panel.style.borderLeftColor = "#FFCA28";
         } else if ((totalSeconds / 60) > coveredMin) {
-           const overMin = (totalSeconds / 60) - coveredMin;
-           const shortage = overMin * ratePerMin;
-           liveMoney.textContent = `+$${shortage.toFixed(1)}`;
-           liveMoney.style.color = "#FF5252"; panel.style.borderLeftColor = "#FF5252";
+           const overMin = (totalSeconds / 60) - coveredMin; const shortage = overMin * ratePerMin;
+           liveMoney.textContent = `+$${shortage.toFixed(1)}`; liveMoney.style.color = "#FF5252"; panel.style.borderLeftColor = "#FF5252";
         } else {
-           const remainSecs = Math.floor((coveredMin * 60) - totalSeconds);
-           const rMin = Math.floor(remainSecs / 60);
-           const rSec = remainSecs % 60;
-           liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`;
-           liveMoney.style.color = "#00FF66"; panel.style.borderLeftColor = "#00FF66";
+           const remainSecs = Math.floor((coveredMin * 60) - totalSeconds); const rMin = Math.floor(remainSecs / 60); const rSec = remainSecs % 60;
+           liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`; liveMoney.style.color = "#00FF66"; panel.style.borderLeftColor = "#00FF66";
         }
       });
     }, 1000);
 
     function calculateAndSaveOrder(index) {
       triggerVibrate(60); 
-      const basePayInput = document.getElementById(`basePay_${index}`);
-      const basePayVal = parseFloat(basePayInput.value);
+      const basePayInput = document.getElementById(`basePay_${index}`); const basePayVal = parseFloat(basePayInput.value);
       if (isNaN(basePayVal) || basePayVal <= 0) { alert('請先輸入此單的實收車資！'); basePayInput.focus(); return; }
-      const sh = parseInt(document.getElementById(`startH_${index}`).value || '0', 10);
-      const sm = parseInt(document.getElementById(`startM_${index}`).value || '0', 10);
-      const eh = parseInt(document.getElementById(`endH_${index}`).value || '0', 10);
-      const em = parseInt(document.getElementById(`endM_${index}`).value || '0', 10);
+      const sh = parseInt(document.getElementById(`startH_${index}`).value || '0', 10); const sm = parseInt(document.getElementById(`startM_${index}`).value || '0', 10);
+      const eh = parseInt(document.getElementById(`endH_${index}`).value || '0', 10); const em = parseInt(document.getElementById(`endM_${index}`).value || '0', 10);
       const duration = calcDuration(sh, sm, eh, em);
       if (duration <= 0) { alert('請確認送達時間與接單時間！'); return; }
-      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245;
-      const ratePerMin = rate / 60;
-      const coveredMin = basePayVal / ratePerMin;
+      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245; const ratePerMin = rate / 60; const coveredMin = basePayVal / ratePerMin;
       let shortage = 0; let overMin = 0;
-      if (duration > coveredMin) {
-        overMin = duration - coveredMin;
-        shortage = Math.round((overMin * ratePerMin) * 10) / 10;
-      }
+      if (duration > coveredMin) { overMin = duration - coveredMin; shortage = Math.round((overMin * ratePerMin) * 10) / 10; }
       const sH_str = sh.toString().padStart(2, '0'); const sM_str = sm.toString().padStart(2, '0');
       const eH_str = eh.toString().padStart(2, '0'); const eM_str = em.toString().padStart(2, '0');
       
       const dateStr = getShiftDate();
-      
-      const titleSpan = document.querySelector(`#order_block_${index} .order-title`);
-      const orderTitle = titleSpan ? titleSpan.textContent : '外送訂單';
+      const titleSpan = document.querySelector(`#order_block_${index} .order-title`); const orderTitle = titleSpan ? titleSpan.textContent : '外送訂單';
 
       records.unshift({ id: Date.now(), date: dateStr, orderTitle: orderTitle, startTime: `${sH_str}:${sM_str}`, endTime: `${eH_str}:${eM_str}`, duration, basePay: basePayVal, shortage: shortage });
-      localStorage.setItem('delivery_records', JSON.stringify(records));
-      currentFilter = dateStr;
+      localStorage.setItem('delivery_records', JSON.stringify(records)); currentFilter = dateStr;
+
+      const reminderEl = document.getElementById(`reminder_${index}`); if (reminderEl) reminderEl.style.display = 'none';
 
       const blocks = Array.from(document.querySelectorAll('#ordersContainer .order-block'));
       const isFirstBlock = (blocks.length > 0 && blocks[0].id === `order_block_${index}`);
-      if (!isFirstBlock) {
-        removeOrderBlock(index);
-        render(); return; 
-      }
-      basePayInput.value = '';
-      document.getElementById(`startH_${index}`).value = '00'; document.getElementById(`startM_${index}`).value = '00';
+      if (!isFirstBlock) { removeOrderBlock(index); render(); return; }
+      
+      basePayInput.value = ''; document.getElementById(`startH_${index}`).value = '00'; document.getElementById(`startM_${index}`).value = '00';
       document.getElementById(`endH_${index}`).value = '00'; document.getElementById(`endM_${index}`).value = '00';
       const block = document.getElementById(`order_block_${index}`);
-      block.dataset.started = 'false'; block.dataset.ended = 'false';
-      document.getElementById(`live_panel_${index}`).style.display = 'none';
-      const badge = document.getElementById(`calc_badge_${index}`);
-      badge.className = 'calc-result-badge success';
+      block.dataset.started = 'false'; block.dataset.ended = 'false'; document.getElementById(`live_panel_${index}`).style.display = 'none';
+      const badge = document.getElementById(`calc_badge_${index}`); badge.className = 'calc-result-badge success';
       badge.innerHTML = `<strong>✓ 儲存成功！剛才這單補差額：$${shortage} 元</strong><br><span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">格子已清空，可直接開始下一單！</span>`;
       render();
     }
 
     function removeOrderBlock(index) {
-      triggerVibrate(30);
-      const block = document.getElementById(`order_block_${index}`);
+      triggerVibrate(30); const block = document.getElementById(`order_block_${index}`);
       if (block) { block.remove(); updateOrderTitles(); updateAddButton(); }
     }
-    function updateOrderTitles() {
-      document.querySelectorAll('#ordersContainer .order-block').forEach((b, idx) => {
-        const titleSpan = b.querySelector('.order-title');
-        if (titleSpan) titleSpan.textContent = idx === 0 ? '第 1 單' : `第 ${idx + 1} 單 (夾單)`;
-      });
-    }
-    function updateAddButton() {
-      const count = document.querySelectorAll('#ordersContainer .order-block').length;
-      const btn = document.getElementById('btnAddBatch');
-      if (count >= MAX_ORDERS) { btn.style.display = 'none'; } 
-      else { btn.style.display = 'block'; btn.textContent = `＋ 新增夾單 (目前 ${count}/${MAX_ORDERS} 單)`; }
-    }
+    function updateOrderTitles() { document.querySelectorAll('#ordersContainer .order-block').forEach((b, idx) => { const titleSpan = b.querySelector('.order-title'); if (titleSpan) titleSpan.textContent = idx === 0 ? '第 1 單' : `第 ${idx + 1} 單 (夾單)`; }); }
+    function updateAddButton() { const count = document.querySelectorAll('#ordersContainer .order-block').length; const btn = document.getElementById('btnAddBatch'); if (count >= MAX_ORDERS) { btn.style.display = 'none'; } else { btn.style.display = 'block'; btn.textContent = `＋ 新增夾單 (目前 ${count}/${MAX_ORDERS} 單)`; } }
     function setNow(type, index) {
-      triggerVibrate(40);
-      const now = new Date();
-      const h = now.getHours().toString().padStart(2, '0'); const m = now.getMinutes().toString().padStart(2, '0');
-      if (type === 'start') {
-        document.getElementById(`startH_${index}`).value = h; document.getElementById(`startM_${index}`).value = m;
-        markStarted(index);
-      } else {
-        document.getElementById(`endH_${index}`).value = h; document.getElementById(`endM_${index}`).value = m;
-        markEnded(index);
-      }
+      triggerVibrate(40); const now = new Date(); const h = now.getHours().toString().padStart(2, '0'); const m = now.getMinutes().toString().padStart(2, '0');
+      if (type === 'start') { document.getElementById(`startH_${index}`).value = h; document.getElementById(`startM_${index}`).value = m; markStarted(index); } 
+      else { document.getElementById(`endH_${index}`).value = h; document.getElementById(`endM_${index}`).value = m; markEnded(index); }
     }
     function calcDuration(sh, sm, eh, em) {
       if (sh === 0 && sm === 0 && eh === 0 && em === 0) return 0;
       let startMin = sh * 60 + sm; let endMin = eh * 60 + em;
-      if (endMin < startMin) endMin += 24 * 60; 
-      return endMin - startMin;
+      if (endMin < startMin) endMin += 24 * 60; return endMin - startMin;
     }
 
     let records = JSON.parse(localStorage.getItem('delivery_records') || '[]');
-    let rate = parseFloat(localStorage.getItem('delivery_rate') || '245');
-    document.getElementById('hourlyRate').value = rate;
+    let rate = parseFloat(localStorage.getItem('delivery_rate') || '245'); document.getElementById('hourlyRate').value = rate;
 
-    function saveRate() {
-      rate = parseFloat(document.getElementById('hourlyRate').value) || 245;
-      localStorage.setItem('delivery_rate', rate); render();
-    }
-    function deleteRecord(id) {
-      triggerVibrate(30);
-      if (confirm('確定刪除這筆紀錄？')) { records = records.filter(r => r.id !== id); localStorage.setItem('delivery_records', JSON.stringify(records)); render(); }
-    }
+    function saveRate() { rate = parseFloat(document.getElementById('hourlyRate').value) || 245; localStorage.setItem('delivery_rate', rate); render(); }
+    function deleteRecord(id) { triggerVibrate(30); if (confirm('確定刪除這筆紀錄？')) { records = records.filter(r => r.id !== id); localStorage.setItem('delivery_records', JSON.stringify(records)); render(); } }
     function changeDateFilter() { triggerVibrate(20); currentFilter = document.getElementById('dateFilter').value; render(); }
 
-    function renderChart() {
-      const chartEl = document.getElementById('weeklyChart');
-      if (!chartEl) return;
-      chartEl.innerHTML = '';
+    // 🔥 呼叫編輯視窗
+    function openEditModal(id) {
+      triggerVibrate(30);
+      const r = records.find(rec => rec.id === id);
+      if (!r) return;
       
-      const baseDate = new Date();
-      if (baseDate.getHours() < 4) {
-        baseDate.setDate(baseDate.getDate() - 1);
+      document.getElementById('edit_id').value = r.id;
+      document.getElementById('edit_basePay').value = r.basePay;
+      
+      const [sh, sm] = r.startTime.split(':');
+      document.getElementById('edit_startH').value = sh;
+      document.getElementById('edit_startM').value = sm;
+      
+      const [eh, em] = r.endTime.split(':');
+      document.getElementById('edit_endH').value = eh;
+      document.getElementById('edit_endM').value = em;
+      
+      document.getElementById('editModal').style.display = 'flex';
+    }
+
+    // 關閉編輯視窗
+    function closeEditModal() {
+      triggerVibrate(20);
+      document.getElementById('editModal').style.display = 'none';
+    }
+
+    // 🔥 儲存編輯並重新計算
+    function saveEdit() {
+      triggerVibrate(50);
+      const id = parseInt(document.getElementById('edit_id').value, 10);
+      const basePay = parseFloat(document.getElementById('edit_basePay').value);
+      const sh = parseInt(document.getElementById('edit_startH').value, 10);
+      const sm = parseInt(document.getElementById('edit_startM').value, 10);
+      const eh = parseInt(document.getElementById('edit_endH').value, 10);
+      const em = parseInt(document.getElementById('edit_endM').value, 10);
+      
+      if (isNaN(basePay) || basePay <= 0) { alert('車資不能為空白或小於0！'); return; }
+      const duration = calcDuration(sh, sm, eh, em);
+      if (duration <= 0) { alert('請確認送達時間與接單時間是否合理！'); return; }
+      
+      const hourlyRate = parseFloat(document.getElementById('hourlyRate').value) || 245;
+      const ratePerMin = hourlyRate / 60;
+      const coveredMin = basePay / ratePerMin;
+      let shortage = 0;
+      
+      if (duration > coveredMin) {
+        shortage = Math.round(((duration - coveredMin) * ratePerMin) * 10) / 10;
       }
-
-      let dayOfWeek = baseDate.getDay(); 
-      let distanceToMonday = (dayOfWeek + 6) % 7; 
       
-      let mondayDate = new Date(baseDate);
-      mondayDate.setDate(baseDate.getDate() - distanceToMonday);
+      const idx = records.findIndex(rec => rec.id === id);
+      if (idx !== -1) {
+        records[idx].basePay = basePay;
+        records[idx].startTime = `${sh.toString().padStart(2, '0')}:${sm.toString().padStart(2, '0')}`;
+        records[idx].endTime = `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}`;
+        records[idx].duration = duration;
+        records[idx].shortage = shortage;
+        
+        localStorage.setItem('delivery_records', JSON.stringify(records));
+        render();
+        closeEditModal();
+      }
+    }
 
-      let days = [];
-      let dayNames = ['一', '二', '三', '四', '五', '六', '日'];
+    function renderChart() {
+      const chartEl = document.getElementById('weeklyChart'); if (!chartEl) return;
+      chartEl.innerHTML = ''; 
+      
+      const baseDate = new Date(); if (baseDate.getHours() < 4) { baseDate.setDate(baseDate.getDate() - 1); }
+
+      let dayOfWeek = baseDate.getDay(); let distanceToMonday = (dayOfWeek + 6) % 7; 
+      let mondayDate = new Date(baseDate); mondayDate.setDate(baseDate.getDate() - distanceToMonday);
+
+      let days = []; let dayNames = ['一', '二', '三', '四', '五', '六', '日'];
       
       for (let i = 0; i < 7; i++) { 
-        const d = new Date(mondayDate); 
-        d.setDate(mondayDate.getDate() + i); 
-        days.push({
-          dateStr: `${d.getMonth() + 1}/${d.getDate()}`,
-          dayLabel: dayNames[i]
-        }); 
+        const d = new Date(mondayDate); d.setDate(mondayDate.getDate() + i); 
+        days.push({ dateStr: `${d.getMonth() + 1}/${d.getDate()}`, dayLabel: dayNames[i] }); 
       }
 
       let chartData = days.map(d => ({ date: d.dateStr, label: d.dayLabel, base: 0, short: 0 }));
-      records.forEach(r => {
-        const idx = chartData.findIndex(cd => cd.date === r.date);
-        if(idx !== -1) {
-          chartData[idx].base += r.basePay;
-          chartData[idx].short += r.shortage;
-        }
-      });
+      records.forEach(r => { const idx = chartData.findIndex(cd => cd.date === r.date); if(idx !== -1) { chartData[idx].base += r.basePay; chartData[idx].short += r.shortage; } });
 
-      let maxTotal = 100; 
-      chartData.forEach(d => {
-        const total = d.base + d.short;
-        if(total > maxTotal) maxTotal = total;
-      });
+      let maxTotal = 100; chartData.forEach(d => { const total = d.base + d.short; if(total > maxTotal) maxTotal = total; });
 
       chartData.forEach(d => {
-        const total = d.base + d.short;
-        const scale = 90 / maxTotal;
-        const baseHeight = d.base * scale;
-        const shortHeight = d.short * scale;
-        
+        const total = d.base + d.short; const scale = 90 / maxTotal; const baseHeight = d.base * scale; const shortHeight = d.short * scale;
         const html = `
           <div class="chart-bar-group">
             <div class="chart-val">${total > 0 ? '$'+Math.round(total) : ''}</div>
@@ -681,8 +694,7 @@
               ${d.base > 0 ? `<div class="chart-bar-base" style="height: ${baseHeight}%"></div>` : ''}
             </div>
             <div class="chart-label" style="text-align: center; line-height: 1.3;">
-              ${d.date}<br>
-              <span style="font-size:0.6rem; color:var(--sub); font-weight:normal;">(${d.label})</span>
+              ${d.date}<br><span style="font-size:0.6rem; color:var(--sub); font-weight:normal;">(${d.label})</span>
             </div>
           </div>
         `;
@@ -691,63 +703,36 @@
     }
 
     function backupJSON() {
-      triggerVibrate(30);
-      if (records.length === 0) return alert('目前尚無資料可備份。');
-      const dataStr = JSON.stringify(records);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `外送備份_${new Date().toISOString().slice(0,10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      triggerVibrate(30); if (records.length === 0) return alert('目前尚無資料可備份。');
+      const dataStr = JSON.stringify(records); const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url;
+      a.download = `外送備份_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
     function restoreJSON(event) {
-      triggerVibrate(40);
-      const file = event.target.files[0];
-      if (!file) return;
+      triggerVibrate(40); const file = event.target.files[0]; if (!file) return;
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
           const imported = JSON.parse(e.target.result);
           if (Array.isArray(imported)) {
             if (confirm(`成功讀取備份檔，包含 ${imported.length} 筆紀錄。即將覆蓋目前資料，是否繼續？`)) {
-              records = imported;
-              localStorage.setItem('delivery_records', JSON.stringify(records));
-              alert('✅ 備份還原成功！');
-              render();
+              records = imported; localStorage.setItem('delivery_records', JSON.stringify(records)); alert('✅ 備份還原成功！'); render();
             }
-          } else {
-            alert('檔案格式錯誤，還原失敗。');
-          }
-        } catch(err) {
-          alert('無法解析檔案，請確認是否為正確的 .json 備份檔。');
-        }
+          } else { alert('檔案格式錯誤，還原失敗。'); }
+        } catch(err) { alert('無法解析檔案，請確認是否為正確的 .json 備份檔。'); }
       };
-      reader.readAsText(file);
-      event.target.value = '';
+      reader.readAsText(file); event.target.value = '';
     }
 
     function render() {
-      const listEl = document.getElementById('recordsList');
-      listEl.innerHTML = '';
-      
+      const listEl = document.getElementById('recordsList'); listEl.innerHTML = '';
       const todayStr = getShiftDate();
-      
       if (currentFilter === null) currentFilter = todayStr;
 
-      let dates = [...new Set(records.map(r => r.date))];
-      if (!dates.includes(todayStr)) dates.unshift(todayStr); 
-      
-      const filterSel = document.getElementById('dateFilter');
-      filterSel.innerHTML = '<option value="ALL">全部歷史紀錄</option>';
-      dates.forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d; opt.textContent = (d === todayStr) ? `${d} (今天)` : d;
-        filterSel.appendChild(opt);
-      });
+      let dates = [...new Set(records.map(r => r.date))]; if (!dates.includes(todayStr)) dates.unshift(todayStr); 
+      const filterSel = document.getElementById('dateFilter'); filterSel.innerHTML = '<option value="ALL">全部歷史紀錄</option>';
+      dates.forEach(d => { const opt = document.createElement('option'); opt.value = d; opt.textContent = (d === todayStr) ? `${d} (今天)` : d; filterSel.appendChild(opt); });
       filterSel.value = currentFilter;
 
       let filteredRecords = records;
@@ -760,18 +745,19 @@
       } else {
         filteredRecords.forEach(r => {
           totalMinutes += r.duration; totalBasePay += r.basePay; totalShortage += r.shortage;
-          const card = document.createElement('div');
-          card.className = 'item-card';
+          const card = document.createElement('div'); card.className = 'item-card';
           card.innerHTML = `
             <div class="item-info">
               <div class="title">${r.orderTitle || '外送訂單'} <span style="font-size:0.8rem; color:var(--sub);">(${r.date})</span></div>
               <div class="detail">${r.startTime} ➜ ${r.endTime} (共 ${r.duration} 分鐘)</div>
               <div class="detail">實收車資: $${r.basePay}</div>
             </div>
-            <div style="display: flex; align-items: center;">
+            <!-- 🔥 新增了編輯按鈕 -->
+            <div class="action-btns">
               <div class="item-diff">
                 ${r.shortage > 0 ? `<span class="diff-badge needs-pay">補 $${r.shortage}</span>` : `<span class="diff-badge">達標</span>`}
               </div>
+              <button class="edit-btn" onclick="openEditModal(${r.id})">✏️</button>
               <button class="del-btn" onclick="deleteRecord(${r.id})">×</button>
             </div>
           `;
@@ -787,34 +773,23 @@
     }
 
     function exportCSV() {
-      triggerVibrate(30);
-      let filteredRecords = records;
-      if (currentFilter !== 'ALL') {
-        filteredRecords = records.filter(r => r.date === currentFilter);
-      }
+      triggerVibrate(30); let filteredRecords = records;
+      if (currentFilter !== 'ALL') { filteredRecords = records.filter(r => r.date === currentFilter); }
       if (filteredRecords.length === 0) return alert('此日期無資料可匯出');
       
       let csvContent = "日期,組別,接單時間,送達時間,耗時(分),車資,應補差額\n";
-      filteredRecords.forEach(r => { 
-        csvContent += `"${r.date}","${r.orderTitle || '一般'}","${r.startTime}","${r.endTime}",${r.duration},${r.basePay},${r.shortage}\n`; 
-      });
+      filteredRecords.forEach(r => { csvContent += `"${r.date}","${r.orderTitle || '一般'}","${r.startTime}","${r.endTime}",${r.duration},${r.basePay},${r.shortage}\n`; });
 
       const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
-      
-      const link = document.createElement("a");
-      link.href = url;
+      const link = document.createElement("a"); link.href = url;
       const fileNameDate = currentFilter === 'ALL' ? '全部歷史' : currentFilter.replace('/', '-');
       link.download = `外送補差額_${fileNameDate}.csv`;
       
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
     }
 
-    addOrderBlock();
-    render();
+    addOrderBlock(); render();
   </script>
 </body>
 </html>
