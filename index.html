@@ -277,15 +277,6 @@
     .del-btn { color: var(--sub); background: none; border: none; font-size: 1.4rem; padding-left: 4px; cursor: pointer; transition: color 0.2s; }
     .del-btn:hover { color: var(--danger); }
 
-    /* 🔥 取消了閃爍動畫，改為安靜的靜態紅字提醒 */
-    .reminder-text {
-      display: none; 
-      font-size: 0.85rem; 
-      font-weight: 800; 
-      color: var(--danger);
-      margin-left: 8px;
-    }
-
     @media (max-width: 430px) {
       .dashboard { gap: 4px; }
       .dash-box { padding: 8px 2px; }
@@ -405,6 +396,22 @@
   </div>
 
   <script>
+    // 🔥 解決 iOS Safari 語音引擎需要「使用者互動解鎖」的問題
+    let speechUnlocked = false;
+    function unlockSpeech() {
+      if (!speechUnlocked && 'speechSynthesis' in window) {
+        const u = new SpeechSynthesisUtterance('');
+        u.volume = 0; // 無聲播放，騙過 iOS 檢查機制
+        window.speechSynthesis.speak(u);
+        speechUnlocked = true;
+        // 解鎖成功後移除監聽器，避免浪費資源
+        document.removeEventListener('click', unlockSpeech);
+        document.removeEventListener('touchstart', unlockSpeech);
+      }
+    }
+    document.addEventListener('click', unlockSpeech);
+    document.addEventListener('touchstart', unlockSpeech);
+
     function triggerVibrate(ms = 30) { if (navigator.vibrate) navigator.vibrate(ms); }
 
     function getShiftDate(dateObj = new Date()) {
@@ -454,8 +461,6 @@
       const isFirst = (currentBlocks.length === 0); const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
 
       const block = document.createElement('div'); block.className = 'order-block'; block.id = `order_block_${index}`;
-      
-      // 🔥 初始化這筆訂單的「語音已播放」標記為 false
       block.dataset.voiceReminded = 'false';
 
       block.innerHTML = `
@@ -480,7 +485,7 @@
           <div>💰 補差: <strong id="live_money_${index}">--</strong></div>
         </div>
         <div class="form-group" style="margin-bottom:0;">
-          <label>送達時間 (結束) <span id="reminder_${index}" class="reminder-text">⚠️ 已超過 10 分鐘</span></label>
+          <label>送達時間 (結束)</label>
           <div class="time-picker-row">
             <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select><span>:</span>
             <select id="endM_${index}" onchange="markEnded(${index})">${minOptionsHTML}</select>
@@ -497,7 +502,6 @@
       const block = document.getElementById(`order_block_${index}`);
       if (block) {
         block.dataset.started = 'true'; block.dataset.ended = 'false';
-        // 重新開始計時時，重置語音狀態
         block.dataset.voiceReminded = 'false';
         document.getElementById(`live_panel_${index}`).style.display = 'flex'; hideBadge(index);
       }
@@ -506,8 +510,6 @@
     function markEnded(index) {
       const block = document.getElementById(`order_block_${index}`);
       if (block) { block.dataset.ended = 'true'; }
-      const reminderEl = document.getElementById(`reminder_${index}`);
-      if (reminderEl) reminderEl.style.display = 'none';
     }
 
     function hideBadge(index) { document.getElementById(`calc_badge_${index}`).style.display = 'none'; }
@@ -524,19 +526,15 @@
         const totalSeconds = Math.floor(diffMs / 1000); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60;
         document.getElementById(`live_time_${index}`).textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
         
-        // 🔥 10分鐘 (600秒) 提醒邏輯
+        // 🔥 10分鐘 (600秒) 語音提醒邏輯 (移除視覺閃爍，保留純語音)
         if (totalSeconds >= 600) {
-          // 1. 顯示靜態提示字
-          const reminderEl = document.getElementById(`reminder_${index}`);
-          if (reminderEl) reminderEl.style.display = 'inline-block';
-          
-          // 2. 觸發單次語音提示
           if (block.dataset.voiceReminded !== 'true') {
-            block.dataset.voiceReminded = 'true'; // 標記為已播放
+            block.dataset.voiceReminded = 'true';
             if ('speechSynthesis' in window) {
-              const utterance = new SpeechSynthesisUtterance('阿ㄅ，完成訂單後，記得按結束喔喔喔');
+              window.speechSynthesis.cancel(); // 確保不會卡住上一句沒唸完的
+              const utterance = new SpeechSynthesisUtterance('阿ㄅ，完成訂單後，記得按結束餒，哉某');
               utterance.lang = 'zh-TW';
-              utterance.rate = 1.1; // 稍微調快一點點語速，聽起來比較俐落
+              utterance.rate = 1.0;
               window.speechSynthesis.speak(utterance);
             }
           }
@@ -548,10 +546,10 @@
            liveMoney.textContent = "請輸入車資"; liveMoney.style.color = "#FFCA28"; panel.style.borderLeftColor = "#FFCA28";
         } else if ((totalSeconds / 60) > coveredMin) {
            const overMin = (totalSeconds / 60) - coveredMin; const shortage = overMin * ratePerMin;
-           liveMoney.textContent = `+$${shortage.toFixed(1)}`; liveMoney.style.color = "var(--danger)"; panel.style.borderLeftColor = "var(--danger)";
+           liveMoney.textContent = `+$${shortage.toFixed(1)}`; liveMoney.style.color = "#FF5252"; panel.style.borderLeftColor = "#FF5252";
         } else {
            const remainSecs = Math.floor((coveredMin * 60) - totalSeconds); const rMin = Math.floor(remainSecs / 60); const rSec = remainSecs % 60;
-           liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`; liveMoney.style.color = "var(--info)"; panel.style.borderLeftColor = "var(--info)";
+           liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`; liveMoney.style.color = "#00FF66"; panel.style.borderLeftColor = "#00FF66";
         }
       });
     }, 1000);
@@ -575,8 +573,6 @@
 
       records.unshift({ id: Date.now(), date: dateStr, orderTitle: orderTitle, startTime: `${sH_str}:${sM_str}`, endTime: `${eH_str}:${eM_str}`, duration, basePay: basePayVal, shortage: shortage });
       localStorage.setItem('delivery_records', JSON.stringify(records)); currentFilter = dateStr;
-
-      const reminderEl = document.getElementById(`reminder_${index}`); if (reminderEl) reminderEl.style.display = 'none';
 
       const blocks = Array.from(document.querySelectorAll('#ordersContainer .order-block'));
       const isFirstBlock = (blocks.length > 0 && blocks[0].id === `order_block_${index}`);
