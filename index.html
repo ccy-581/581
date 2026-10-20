@@ -94,29 +94,13 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       position: relative;
     }
-    header h1 { font-size: 1.2rem; font-weight: 700; margin-right: 135px; margin-left: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    header h1 { font-size: 1.2rem; font-weight: 700; margin-right: 60px; margin-left: 20px;}
     header p { font-size: 0.8rem; opacity: 0.9; margin-top: 4px; font-weight: 500; }
 
     .btn-theme-toggle {
       position: absolute;
       top: 16px;
       right: 12px;
-      background: rgba(0,0,0,0.25);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: white;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      cursor: pointer;
-      backdrop-filter: blur(4px);
-    }
-    
-    /* 🔥 新增試音按鈕樣式 */
-    .btn-test-voice {
-      position: absolute;
-      top: 16px;
-      right: 88px;
       background: rgba(0,0,0,0.25);
       border: 1px solid rgba(255,255,255,0.2);
       color: white;
@@ -293,10 +277,7 @@
     .del-btn { color: var(--sub); background: none; border: none; font-size: 1.4rem; padding-left: 4px; cursor: pointer; transition: color 0.2s; }
     .del-btn:hover { color: var(--danger); }
 
-    /* 完全移除閃爍動畫與靜態紅字提醒 */
-    .reminder-text {
-      display: none;
-    }
+    .reminder-text { display: none; }
 
     @media (max-width: 430px) {
       .dashboard { gap: 4px; }
@@ -314,8 +295,6 @@
 
   <header>
     <h1>外送員補差額記帳本</h1>
-    <!-- 🔥 試音按鈕 -->
-    <button class="btn-test-voice" onclick="testVoice()">🔊 試音</button>
     <button id="themeToggleBtn" class="btn-theme-toggle" onclick="toggleTheme()">☕ 深焙</button>
   </header>
 
@@ -437,21 +416,6 @@
     // 綁定全域點擊事件，確保一進網頁碰到畫面就解鎖
     document.addEventListener('touchstart', unlockSpeech);
     document.addEventListener('click', unlockSpeech);
-
-    // 🔥 測試語音功能
-    function testVoice() {
-      unlockSpeech();
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.resume();
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance('語音系統正常，阿ㄅ，記得按結束餒，哉某');
-        u.lang = 'zh-TW';
-        u.rate = 1.0;
-        window.speechSynthesis.speak(u);
-      } else {
-        alert("您的瀏覽器不支援語音功能");
-      }
-    }
 
     function triggerVibrate(ms = 30) { if (navigator.vibrate) navigator.vibrate(ms); }
 
