@@ -94,13 +94,29 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       position: relative;
     }
-    header h1 { font-size: 1.2rem; font-weight: 700; margin-right: 60px; margin-left: 20px;}
+    header h1 { font-size: 1.2rem; font-weight: 700; margin-right: 135px; margin-left: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     header p { font-size: 0.8rem; opacity: 0.9; margin-top: 4px; font-weight: 500; }
 
     .btn-theme-toggle {
       position: absolute;
       top: 16px;
       right: 12px;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+    
+    /* 🔥 新增試音按鈕樣式 */
+    .btn-test-voice {
+      position: absolute;
+      top: 16px;
+      right: 88px;
       background: rgba(0,0,0,0.25);
       border: 1px solid rgba(255,255,255,0.2);
       color: white;
@@ -277,6 +293,11 @@
     .del-btn { color: var(--sub); background: none; border: none; font-size: 1.4rem; padding-left: 4px; cursor: pointer; transition: color 0.2s; }
     .del-btn:hover { color: var(--danger); }
 
+    /* 完全移除閃爍動畫與靜態紅字提醒 */
+    .reminder-text {
+      display: none;
+    }
+
     @media (max-width: 430px) {
       .dashboard { gap: 4px; }
       .dash-box { padding: 8px 2px; }
@@ -293,6 +314,8 @@
 
   <header>
     <h1>外送員補差額記帳本</h1>
+    <!-- 🔥 試音按鈕 -->
+    <button class="btn-test-voice" onclick="testVoice()">🔊 試音</button>
     <button id="themeToggleBtn" class="btn-theme-toggle" onclick="toggleTheme()">☕ 深焙</button>
   </header>
 
@@ -396,21 +419,39 @@
   </div>
 
   <script>
-    // 🔥 解決 iOS Safari 語音引擎需要「使用者互動解鎖」的問題
+    // 🔥 iOS 語音解鎖機制
     let speechUnlocked = false;
     function unlockSpeech() {
-      if (!speechUnlocked && 'speechSynthesis' in window) {
-        const u = new SpeechSynthesisUtterance('');
-        u.volume = 0; // 無聲播放，騙過 iOS 檢查機制
-        window.speechSynthesis.speak(u);
-        speechUnlocked = true;
-        // 解鎖成功後移除監聽器，避免浪費資源
-        document.removeEventListener('click', unlockSpeech);
-        document.removeEventListener('touchstart', unlockSpeech);
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.resume(); // 喚醒休眠的語音引擎
+        if (!speechUnlocked) {
+          const u = new SpeechSynthesisUtterance('');
+          u.volume = 0; // 無聲播放騙過審查
+          window.speechSynthesis.speak(u);
+          speechUnlocked = true;
+          document.removeEventListener('touchstart', unlockSpeech);
+          document.removeEventListener('click', unlockSpeech);
+        }
       }
     }
-    document.addEventListener('click', unlockSpeech);
+    // 綁定全域點擊事件，確保一進網頁碰到畫面就解鎖
     document.addEventListener('touchstart', unlockSpeech);
+    document.addEventListener('click', unlockSpeech);
+
+    // 🔥 測試語音功能
+    function testVoice() {
+      unlockSpeech();
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance('語音系統正常，阿ㄅ，記得按結束餒，哉某');
+        u.lang = 'zh-TW';
+        u.rate = 1.0;
+        window.speechSynthesis.speak(u);
+      } else {
+        alert("您的瀏覽器不支援語音功能");
+      }
+    }
 
     function triggerVibrate(ms = 30) { if (navigator.vibrate) navigator.vibrate(ms); }
 
@@ -461,6 +502,8 @@
       const isFirst = (currentBlocks.length === 0); const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
 
       const block = document.createElement('div'); block.className = 'order-block'; block.id = `order_block_${index}`;
+      
+      // 綁定語音提醒標記
       block.dataset.voiceReminded = 'false';
 
       block.innerHTML = `
@@ -526,12 +569,13 @@
         const totalSeconds = Math.floor(diffMs / 1000); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60;
         document.getElementById(`live_time_${index}`).textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
         
-        // 🔥 10分鐘 (600秒) 語音提醒邏輯 (移除視覺閃爍，保留純語音)
+        // 🔥 10分鐘 (600秒) 專屬語音提醒
         if (totalSeconds >= 600) {
           if (block.dataset.voiceReminded !== 'true') {
             block.dataset.voiceReminded = 'true';
             if ('speechSynthesis' in window) {
-              window.speechSynthesis.cancel(); // 確保不會卡住上一句沒唸完的
+              window.speechSynthesis.resume(); // 強制喚醒 iOS 引擎
+              window.speechSynthesis.cancel();
               const utterance = new SpeechSynthesisUtterance('阿ㄅ，完成訂單後，記得按結束餒，哉某');
               utterance.lang = 'zh-TW';
               utterance.rate = 1.0;
@@ -546,10 +590,10 @@
            liveMoney.textContent = "請輸入車資"; liveMoney.style.color = "#FFCA28"; panel.style.borderLeftColor = "#FFCA28";
         } else if ((totalSeconds / 60) > coveredMin) {
            const overMin = (totalSeconds / 60) - coveredMin; const shortage = overMin * ratePerMin;
-           liveMoney.textContent = `+$${shortage.toFixed(1)}`; liveMoney.style.color = "#FF5252"; panel.style.borderLeftColor = "#FF5252";
+           liveMoney.textContent = `+$${shortage.toFixed(1)}`; liveMoney.style.color = "var(--danger)"; panel.style.borderLeftColor = "var(--danger)";
         } else {
            const remainSecs = Math.floor((coveredMin * 60) - totalSeconds); const rMin = Math.floor(remainSecs / 60); const rSec = remainSecs % 60;
-           liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`; liveMoney.style.color = "#00FF66"; panel.style.borderLeftColor = "#00FF66";
+           liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`; liveMoney.style.color = "var(--info)"; panel.style.borderLeftColor = "var(--info)";
         }
       });
     }, 1000);
