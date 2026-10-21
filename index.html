@@ -363,6 +363,814 @@
 
   </div>
 
+  <!-- 🔥 編輯歷史紀錄的彈出視窗 (Modal) -->
+  <div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(3px);">
+    <div class="card" style="width: 90%; max-width: 400px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin: 0;">
+      <h3 style="margin-bottom: 16px; color: var(--primary); font-weight: 800;">✏️ 修正歷史訂單</h3>
+      <input type="hidden" id="edit_id">
+      
+      <div class="form-group">
+        <label>實收基本車資 ($)</label>
+        <input type="number" id="edit_basePay" step="0.1" style="width:100%;">
+      </div>
+      
+      <div class="form-group">
+        <label>接單時間 (起始)</label>
+        <div class="time-picker-row">
+          <select id="edit_startH"></select><span>:</span>
+          <select id="edit_startM"></select>
+        </div>
+      </div>
+      
+      <!-- 🔥 這裡已經徹底改成只輸入總耗時(分鐘) -->
+      <div class="form-group">
+        <label>總耗時 (分鐘)</label>
+        <input type="number" id="edit_duration" step="1" min="1" placeholder="例如: 32" style="width:100%;">
+      </div>
+      
+      <div style="display: flex; gap: 10px; margin-top: 24px;">
+        <button type="button" class="btn-sm" style="flex: 1; background: var(--primary); color: #FFF; border: none; padding: 12px; font-size: 1rem; font-weight: 800;" onclick="saveEdit()">💾 重新結算</button>
+        <button type="button" class="btn-sm" style="flex: 0.5; padding: 12px; font-size: 1rem;" onclick="closeEditModal()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // iOS 語音解鎖機制
+    let speechUnlocked = false;
+    function unlockSpeech() {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.resume();
+        if (!speechUnlocked) {
+          const u = new SpeechSynthesisUtterance('');
+          u.volume = 0; 
+          window.speechSynthesis.speak(u);
+          speechUnlocked = true;
+          document.removeEventListener('touchstart', unlockSpeech);
+          document.removeEventListener('click', unlockSpeech);
+        }
+      }
+    }
+    document.addEventListener('touchstart', unlockSpeech);
+    document.addEventListener('click', unlockSpeech);
+
+    function triggerVibrate(ms = 30) { if (navigator.vibrate) navigator.vibrate(ms); }
+
+    function getShiftDate(dateObj = new Date()) {
+      const shiftDate = new Date(dateObj);
+      if (shiftDate.getHours() < 4) shiftDate.setDate(shiftDate.getDate() - 1);
+      return `${shiftDate.getMonth() + 1}/${shiftDate.getDate()}`;
+    }
+
+    let currentTheme = localStorage.getItem('delivery_theme') || 'light';
+    function applyTheme(theme) {
+      const btn = document.getElementById('themeToggleBtn');
+      if (theme === 'dark-roast') {
+        document.body.setAttribute('data-theme', 'dark-roast'); btn.innerHTML = '☀️ 日間';
+      } else {
+        document.body.removeAttribute('data-theme'); btn.innerHTML = '☕ 深焙';
+      }
+    }
+    function toggleTheme() {
+      triggerVibrate(20);
+      currentTheme = currentTheme === 'light' ? 'dark-roast' : 'light';
+      localStorage.setItem('delivery_theme', currentTheme); applyTheme(currentTheme);
+    }
+    applyTheme(currentTheme);
+
+    let orderCount = 0; const MAX_ORDERS = 3; let currentFilter = null; 
+
+    let hourOptionsHTML = ''; let minOptionsHTML = '';
+    for (let i = 0; i < 24; i++) {
+      const v = i.toString().padStart(2, '0'); hourOptionsHTML += `<option value="${v}">${v} 點</option>`;
+    }
+    for (let i = 0; i < 60; i++) {
+      const v = i.toString().padStart(2, '0'); minOptionsHTML += `<option value="${v}">${v} 分</option>`;
+    }
+
+    // 編輯視窗只剩下起始時間的下拉選單
+    document.getElementById('edit_startH').innerHTML = hourOptionsHTML;
+    document.getElementById('edit_startM').innerHTML = minOptionsHTML;
+
+    function addOrderBlock() {
+      triggerVibrate(30);
+      const container = document.getElementById('ordersContainer');
+      const currentBlocks = container.getElementsByClassName('order-block');
+      if (currentBlocks.length >= MAX_ORDERS) { alert('目前最多只能夾 3 單！'); return; }
+      
+      orderCount++; const index = orderCount; const orderNum = currentBlocks.length + 1;
+      const isFirst = (currentBlocks.length === 0); const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
+
+      const block = document.createElement('div'); block.className = 'order-block'; block.id = `order_block_${index}`;
+      
+      block.dataset.voiceReminded = 'false';
+
+      block.innerHTML = `
+        <div class="order-block-header">
+          <span class="order-title">${titleText}</span>
+          ${!isFirst ? `<button type="button" class="btn-remove-order" onclick="removeOrderBlock(${index})">✕ 移除此夾單</button>` : ''}
+        </div>
+        <div class="form-group">
+          <label>行程費用 ($)</label>
+          <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
+        </div>
+        <div class="form-group">
+          <label>接單時間 (起始)</label>
+          <div class="time-picker-row">
+            <select id="startH_${index}" onchange="markStarted(${index})">${hourOptionsHTML}</select><span>:</span>
+            <select id="startM_${index}" onchange="markStarted(${index})">${minOptionsHTML}</select>
+            <button type="button" class="btn-time-now" onclick="setNow('start', ${index})">當前時間</button>
+          </div>
+        </div>
+        <div class="live-panel" id="live_panel_${index}">
+          <div>⏱️ 耗時: <strong id="live_time_${index}">00:00</strong></div>
+          <div>💰 補差: <strong id="live_money_${index}">--</strong></div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>送達時間 (結束)</label>
+          <div class="time-picker-row">
+            <select id="endH_${index}" onchange="markEnded(${index})">${hourOptionsHTML}</select><span>:</span>
+            <select id="endM_${index}" onchange="markEnded(${index})">${minOptionsHTML}</select>
+            <button type="button" class="btn-time-now" onclick="setNow('end', ${index})">當前時間</button>
+          </div>
+        </div>
+        <button type="button" class="btn-calc-single" onclick="calculateAndSaveOrder(${index})">⚡ 計算此單補差額 (自動存檔)</button>
+        <div id="calc_badge_${index}" class="calc-result-badge"></div>
+      `;
+      container.appendChild(block); updateAddButton();
+    }
+
+    function markStarted(index) {
+      const block = document.getElementById(`order_block_${index}`);
+      if (block) {
+        block.dataset.started = 'true'; block.dataset.ended = 'false';
+        block.dataset.voiceReminded = 'false';
+        document.getElementById(`live_panel_${index}`).style.display = 'flex'; hideBadge(index);
+      }
+    }
+
+    function markEnded(index) {
+      const block = document.getElementById(`order_block_${index}`);
+      if (block) { block.dataset.ended = 'true'; }
+    }
+
+    function hideBadge(index) { document.getElementById(`calc_badge_${index}`).style.display = 'none'; }
+
+    setInterval(() => {
+      const blocks = document.querySelectorAll('.order-block');
+      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245; const ratePerMin = rate / 60;
+      blocks.forEach(block => {
+        if (block.dataset.started !== 'true' || block.dataset.ended === 'true') return;
+        const index = block.id.replace('order_block_', ''); const startH_el = document.getElementById(`startH_${index}`); if (!startH_el) return;
+        const sh = parseInt(startH_el.value, 10); const sm = parseInt(document.getElementById(`startM_${index}`).value, 10);
+        const now = new Date(); const start = new Date(); start.setHours(sh, sm, 0, 0);
+        let diffMs = now.getTime() - start.getTime(); if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
+        const totalSeconds = Math.floor(diffMs / 1000); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60;
+        document.getElementById(`live_time_${index}`).textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        
+        // 10分鐘 (600秒) 專屬語音提醒
+        if (totalSeconds >= 600) {
+          if (block.dataset.voiceReminded !== 'true') {
+            block.dataset.voiceReminded = 'true';
+            if ('speechSynthesis' in window) {
+              window.speechSynthesis.resume(); 
+              window.speechSynthesis.cancel();
+              const utterance = new SpeechSynthesisUtterance('阿ㄅ，完成訂單後，記得按結束餒，哉某');
+              utterance.lang = 'zh-TW';
+              utterance.rate = 1.0;
+              window.speechSynthesis.speak(utterance);
+            }
+          }
+        }
+
+        const basePay = parseFloat(document.getElementById(`basePay_${index}`).value) || 0; const coveredMin = basePay / ratePerMin;
+        const liveMoney = document.getElementById(`live_money_${index}`); const panel = document.getElementById(`live_panel_${index}`);
+        if (basePay === 0) {
+           liveMoney.textContent = "請輸入車資"; liveMoney.style.color = "#FFCA28"; panel.style.borderLeftColor = "#FFCA28";
+        } else if ((totalSeconds / 60) > coveredMin) {
+           const overMin = (totalSeconds / 60) - coveredMin; const shortage = overMin * ratePerMin;
+           liveMoney.textContent = `+$${shortage.toFixed(1)}`; liveMoney.style.color = "var(--danger)"; panel.style.borderLeftColor = "var(--danger)";
+        } else {
+           const remainSecs = Math.floor((coveredMin * 60) - totalSeconds); const rMin = Math.floor(remainSecs / 60); const rSec = remainSecs % 60;
+           liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`; liveMoney.style.color = "var(--info)"; panel.style.borderLeftColor = "var(--info)";
+        }
+      });
+    }, 1000);
+
+    function calculateAndSaveOrder(index) {
+      triggerVibrate(60); 
+      const basePayInput = document.getElementById(`basePay_${index}`); const basePayVal = parseFloat(basePayInput.value);
+      if (isNaN(basePayVal) || basePayVal <= 0) { alert('請先輸入此單的實收車資！'); basePayInput.focus(); return; }
+      const sh = parseInt(document.getElementById(`startH_${index}`).value || '0', 10); const sm = parseInt(document.getElementById(`startM_${index}`).value || '0', 10);
+      const eh = parseInt(document.getElementById(`endH_${index}`).value || '0', 10); const em = parseInt(document.getElementById(`endM_${index}`).value || '0', 10);
+      const duration = calcDuration(sh, sm, eh, em);
+      if (duration <= 0) { alert('請確認送達時間與接單時間！'); return; }
+      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245; const ratePerMin = rate / 60; const coveredMin = basePayVal / ratePerMin;
+      let shortage = 0; let overMin = 0;
+      if (duration > coveredMin) { overMin = duration - coveredMin; shortage = Math.round((overMin * ratePerMin) * 10) / 10; }
+      const sH_str = sh.toString().padStart(2, '0'); const sM_str = sm.toString().padStart(2, '0');
+      const eH_str = eh.toString().padStart(2, '0'); const eM_str = em.toString().padStart(2, '0');
+      
+      const dateStr = getShiftDate();
+      const titleSpan = document.querySelector(`#order_block_${index} .order-title`); const orderTitle = titleSpan ? titleSpan.textContent : '外送訂單';
+
+      records.unshift({ id: Date.now(), date: dateStr, orderTitle: orderTitle, startTime: `${sH_str}:${sM_str}`, endTime: `${eH_str}:${eM_str}`, duration, basePay: basePayVal, shortage: shortage });
+      localStorage.setItem('delivery_records', JSON.stringify(records)); currentFilter = dateStr;
+
+      const blocks = Array.from(document.querySelectorAll('#ordersContainer .order-block'));
+      const isFirstBlock = (blocks.length > 0 && blocks[0].id === `order_block_${index}`);
+      if (!isFirstBlock) { removeOrderBlock(index); render(); return; }
+      
+      basePayInput.value = ''; document.getElementById(`startH_${index}`).value = '00'; document.getElementById(`startM_${index}`).value = '00';
+      document.getElementById(`endH_${index}`).value = '00'; document.getElementById(`endM_${index}`).value = '00';
+      const block = document.getElementById(`order_block_${index}`);
+      block.dataset.started = 'false'; block.dataset.ended = 'false'; block.dataset.voiceReminded = 'false';
+      document.getElementById(`live_panel_${index}`).style.display = 'none';
+      const badge = document.getElementById(`calc_badge_${index}`); badge.className = 'calc-result-badge success';
+      badge.innerHTML = `<strong>✓ 儲存成功！剛才這單補差額：$${shortage} 元</strong><br><span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">格子已清空，可直接開始下一單！</span>`;
+      render();
+    }
+
+    function removeOrderBlock(index) {
+      triggerVibrate(30); const block = document.getElementById(`order_block_${index}`);
+      if (block) { block.remove(); updateOrderTitles(); updateAddButton(); }
+    }
+    function updateOrderTitles() { document.querySelectorAll('#ordersContainer .order-block').forEach((b, idx) => { const titleSpan = b.querySelector('.order-title'); if (titleSpan) titleSpan.textContent = idx === 0 ? '第 1 單' : `第 ${idx + 1} 單 (夾單)`; }); }
+    function updateAddButton() { const count = document.querySelectorAll('#ordersContainer .order-block').length; const btn = document.getElementById('btnAddBatch'); if (count >= MAX_ORDERS) { btn.style.display = 'none'; } else { btn.style.display = 'block'; btn.textContent = `＋ 新增夾單 (目前 ${count}/${MAX_ORDERS} 單)`; } }
+    function setNow(type, index) {
+      triggerVibrate(40); const now = new Date(); const h = now.getHours().toString().padStart(2, '0'); const m = now.getMinutes().toString().padStart(2, '0');
+      if (type === 'start') { document.getElementById(`startH_${index}`).value = h; document.getElementById(`startM_${index}`).value = m; markStarted(index); } 
+      else { document.getElementById(`endH_${index}`).value = h; document.getElementById(`endM_${index}`).value = m; markEnded(index); }
+    }
+    function calcDuration(sh, sm, eh, em) {
+      if (sh === 0 && sm === 0 && eh === 0 && em === 0) return 0;
+      let startMin = sh * 60 + sm; let endMin = eh * 60 + em;
+      if (endMin < startMin) endMin += 24 * 60; return endMin - startMin;
+    }
+
+    let records = JSON.parse(localStorage.getItem('delivery_records') || '[]');
+    let rate = parseFloat(localStorage.getItem('delivery_rate') || '245'); document.getElementById('hourlyRate').value = rate;
+
+    function saveRate() { rate = parseFloat(document.getElementById('hourlyRate').value) || 245; localStorage.setItem('delivery_rate', rate); render(); }
+    function deleteRecord(id) { triggerVibrate(30); if (confirm('確定刪除這筆紀錄？')) { records = records.filter(r => r.id !== id); localStorage.setItem('delivery_records', JSON.stringify(records)); render(); } }
+    function changeDateFilter() { triggerVibrate(20); currentFilter = document.getElementById('dateFilter').value; render(); }
+
+    function openEditModal(id) {
+      triggerVibrate(30);
+      const r = records.find(rec => rec.id === id);
+      if (!r) return;
+      
+      document.getElementById('edit_id').value = r.id;
+      document.getElementById('edit_basePay').value = r.basePay;
+      
+      const [sh, sm] = r.startTime.split(':');
+      document.getElementById('edit_startH').value = sh;
+      document.getElementById('edit_startM').value = sm;
+      
+      // 🔥 直接帶入歷史紀錄的耗時分鐘數，讓你不用算
+      document.getElementById('edit_duration').value = r.duration;
+      
+      document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+      triggerVibrate(20);
+      document.getElementById('editModal').style.display = 'none';
+    }
+
+    // 🔥 儲存編輯，根據輸入的「耗時分鐘」自動推算「結束時間」並重新計算
+    function saveEdit() {
+      triggerVibrate(50);
+      const id = parseInt(document.getElementById('edit_id').value, 10);
+      const basePay = parseFloat(document.getElementById('edit_basePay').value);
+      const sh = parseInt(document.getElementById('edit_startH').value, 10);
+      const sm = parseInt(document.getElementById('edit_startM').value, 10);
+      const duration = parseInt(document.getElementById('edit_duration').value, 10);
+      
+      if (isNaN(basePay) || basePay <= 0) { alert('車資不能為空白或小於0！'); return; }
+      if (isNaN(duration) || duration <= 0) { alert('耗時必須是大於0的分鐘數！'); return; }
+      
+      // 自動根據起始時間 + 耗時，回推新的結束時間
+      let endTotalMin = (sh * 60 + sm) + duration;
+      let eh = Math.floor(endTotalMin / 60) % 24;
+      let em = endTotalMin % 60;
+      
+      const hourlyRate = parseFloat(document.getElementById('hourlyRate').value) || 245;
+      const ratePerMin = hourlyRate / 60;
+      const coveredMin = basePay / ratePerMin;
+      let shortage = 0;
+      
+      if (duration > coveredMin) {
+        shortage = Math.round(((duration - coveredMin) * ratePerMin) * 10) / 10;
+      }
+      
+      const idx = records.findIndex(rec => rec.id === id);
+      if (idx !== -1) {
+        records[idx].basePay = basePay;
+        records[idx].startTime = `${sh.toString().padStart(2, '0')}:${sm.toString().padStart(2, '0')}`;
+        records[idx].endTime = `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}`;
+        records[idx].duration = duration;
+        records[idx].shortage = shortage;
+        
+        localStorage.setItem('delivery_records', JSON.stringify(records));
+        render();
+        closeEditModal();
+      }
+    }
+
+    function renderChart() {
+      const chartEl = document.getElementById('weeklyChart'); if (!chartEl) return;
+      chartEl.innerHTML = ''; 
+      
+      const baseDate = new Date(); if (baseDate.getHours() < 4) { baseDate.setDate(baseDate.getDate() - 1); }
+
+      let dayOfWeek = baseDate.getDay(); let distanceToMonday = (dayOfWeek + 6) % 7; 
+      let mondayDate = new Date(baseDate); mondayDate.setDate(baseDate.getDate() - distanceToMonday);
+
+      let days = []; let dayNames = ['一', '二', '三', '四', '五', '六', '日'];
+      
+      for (let i = 0; i < 7; i++) { 
+        const d = new Date(mondayDate); d.setDate(mondayDate.getDate() + i); 
+        days.push({ dateStr: `${d.getMonth() + 1}/${d.getDate()}`, dayLabel: dayNames[i] }); 
+      }
+
+      let chartData = days.map(d => ({ date: d.dateStr, label: d.dayLabel, base: 0, short: 0 }));
+      records.forEach(r => { const idx = chartData.findIndex(cd => cd.date === r.date); if(idx !== -1) { chartData[idx].base += r.basePay; chartData[idx].short += r.shortage; } });
+
+      let maxTotal = 100; chartData.forEach(d => { const total = d.base + d.short; if(total > maxTotal) maxTotal = total; });
+
+      chartData.forEach(d => {
+        const total = d.base + d.short; const scale = 90 / maxTotal; const baseHeight = d.base * scale; const shortHeight = d.short * scale;
+        const html = `
+          <div class="chart-bar-group">
+            <div class="chart-val">${total > 0 ? '$'+Math.round(total) : ''}</div>
+            <div class="chart-bar-wrapper">
+              ${d.short > 0 ? `<div class="chart-bar-short" style="height: ${shortHeight}%"></div>` : ''}
+              ${d.base > 0 ? `<div class="chart-bar-base" style="height: ${baseHeight}%"></div>` : ''}
+            </div>
+            <div class="chart-label" style="text-align: center; line-height: 1.3;">
+              ${d.date}<br><span style="font-size:0.6rem; color:var(--sub); font-weight:normal;">(${d.label})</span>
+            </div>
+          </div>
+        `;
+        chartEl.innerHTML += html;
+      });
+    }
+
+    function backupJSON() {
+      triggerVibrate(30); if (records.length === 0) return alert('目前尚無資料可備份。');
+      const dataStr = JSON.stringify(records); const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url;
+      a.download = `外送備份_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+
+    function restoreJSON(event) {
+      triggerVibrate(40); const file = event.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (Array.isArray(imported)) {
+            if (confirm(`成功讀取備份檔，包含 ${imported.length} 筆紀錄。即將覆蓋目前資料，是否繼續？`)) {
+              records = imported; localStorage.setItem('delivery_records', JSON.stringify(records)); alert('✅ 備份還原成功！'); render();
+            }
+          } else { alert('檔案格式錯誤，還原失敗。'); }
+        } catch(err) { alert('無法解析檔案，請確認是否為正確的 .json 備份檔。'); }
+      };
+      reader.readAsText(file); event.target.value = '';
+    }
+
+    function render() {
+      const listEl = document.getElementById('recordsList'); listEl.innerHTML = '';
+      const todayStr = getShiftDate();
+      if (currentFilter === null) currentFilter = todayStr;
+
+      let dates = [...new Set(records.map(r => r.date))]; if (!dates.includes(todayStr)) dates.unshift(todayStr); 
+      const filterSel = document.getElementById('dateFilter'); filterSel.innerHTML = '<option value="ALL">全部歷史紀錄</option>';
+      dates.forEach(d => { const opt = document.createElement('option'); opt.value = d; opt.textContent = (d === todayStr) ? `${d} (今天)` : d; filterSel.appendChild(opt); });
+      filterSel.value = currentFilter;
+
+      let filteredRecords = records;
+      if (currentFilter !== 'ALL') filteredRecords = records.filter(r => r.date === currentFilter);
+
+      let totalMinutes = 0; let totalBasePay = 0; let totalShortage = 0;
+
+      if (filteredRecords.length === 0) {
+        listEl.innerHTML = `<div style="text-align: center; color: var(--sub); padding: 24px 0; font-weight:bold;">此日期尚無紀錄</div>`;
+      } else {
+        filteredRecords.forEach(r => {
+          totalMinutes += r.duration; totalBasePay += r.basePay; totalShortage += r.shortage;
+          const card = document.createElement('div'); card.className = 'item-card';
+          card.innerHTML = `
+            <div class="item-info">
+              <div class="title">${r.orderTitle || '外送訂單'} <span style="font-size:0.8rem; color:var(--sub);">(${r.date})</span></div>
+              <div class="detail">${r.startTime} ➜ ${r.endTime} (共 ${r.duration} 分鐘)</div>
+              <div class="detail">實收車資: $${r.basePay}</div>
+            </div>
+            <div class="action-btns">
+              <div class="item-diff">
+                ${r.shortage > 0 ? `<span class="diff-badge needs-pay">補 $${r.shortage}</span>` : `<span class="diff-badge">達標</span>`}
+              </div>
+              <button class="edit-btn" onclick="openEditModal(${r.id})">✏️</button>
+              <button class="del-btn" onclick="deleteRecord(${r.id})">×</button>
+            </div>
+          `;
+          listEl.appendChild(card);
+        });
+      }
+
+      document.getElementById('totalOrders').innerText = `${filteredRecords.length} 單 / ${totalMinutes}分`;
+      document.getElementById('totalBasePay').innerText = `$${Math.round(totalBasePay)}`;
+      document.getElementById('totalShortage').innerText = `$${Math.round(totalShortage)}`;
+      
+      renderChart();
+    }
+
+    function exportCSV() {
+      triggerVibrate(30); let filteredRecords = records;
+      if (currentFilter !== 'ALL') { filteredRecords = records.filter(r => r.date === currentFilter); }
+      if (filteredRecords.length === 0) return alert('此日期無資料可匯出');
+      
+      let csvContent = "日期,組別,接單時間,送達時間,耗時(分),車資,應補差額\n";
+      filteredRecords.forEach(r => { csvContent += `"${r.date}","${r.orderTitle || '一般'}","${r.startTime}","${r.endTime}",${r.duration},${r.basePay},${r.shortage}\n`; });
+
+      const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a"); link.href = url;
+      const fileNameDate = currentFilter === 'ALL' ? '全部歷史' : currentFilter.replace('/', '-');
+      link.download = `外送補差額_${fileNameDate}.csv`;
+      
+      document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+    }
+
+    addOrderBlock(); render();
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>外送員補差額記帳本</title>
+  <style>
+    /* ☀️ 預設日間模式 */
+    :root {
+      --primary: #00A862;
+      --primary-dark: #007D48;
+      --bg: #F4F6F8;
+      --card: #FFFFFF;
+      --text: #111111;
+      --sub: #4A4C50;
+      --danger: #E41E3F;
+      --info: #0A66C2;
+      --border: #CED0D4;
+      --order-bg: #F9FAFB;
+      --input-bg: #FFFFFF;
+      --input-text: #222222;
+      --btn-light-bg: #E8F5E9;
+      --btn-calc-bg: #EBF3FF;
+      --btn-calc-border: #C2DCFF;
+      --btn-calc-text: #0A66C2;
+      --badge-bg: #E8F5E9;
+      --badge-text: #007D48;
+      --badge-pay-bg: #FFEBEE;
+      --result-pay-bg: #FFF1F0;
+      --result-pay-border: #FFA39E;
+      --result-covered-bg: #F6FFED;
+      --result-covered-border: #B7EB8F;
+      --result-covered-text: #007D48;
+      --header-bg: #00A862;
+      --header-text: #FFFFFF;
+      --live-panel-bg: #111111;
+      --time-btn-text: #007D48;
+      --time-btn-border: #00A862;
+      --time-btn-active-text: #FFFFFF;
+      --add-btn-text: #007D48;
+      --add-btn-border: #00A862;
+      --chart-base: #0A66C2;
+      --chart-short: #E41E3F;
+    }
+
+    /* ☕ 深焙咖啡模式 (高對比戶外版) */
+    [data-theme="dark-roast"] {
+      --primary: #F59E0B;       
+      --primary-dark: #D97706;  
+      --bg: #292524;            
+      --card: #44403C;          
+      --text: #FAF8F5;          
+      --sub: #D6D3D1;           
+      --danger: #FF5252;        
+      --info: #00FF66;          
+      --border: #57534E;        
+      --order-bg: #3A3532;      
+      --input-bg: #1C1917;      
+      --input-text: #FAF8F5;
+      --btn-light-bg: #57534E;
+      --btn-calc-bg: #292524;
+      --btn-calc-border: #F59E0B;
+      --btn-calc-text: #F59E0B;
+      --badge-bg: #292524;
+      --badge-text: #F59E0B;
+      --badge-pay-bg: #450A0A;
+      --result-pay-bg: #450A0A;
+      --result-pay-border: #991B1B;
+      --result-covered-bg: #14532D;
+      --result-covered-border: #166534;
+      --result-covered-text: #4ADE80;
+      --header-bg: #D97706;
+      --header-text: #FFFFFF;
+      --live-panel-bg: #111111;
+      --time-btn-text: #FFE600; 
+      --time-btn-border: #FFE600; 
+      --time-btn-active-text: #111111; 
+      --add-btn-text: #FF9100; 
+      --add-btn-border: #FF9100;
+      --chart-base: #00FF66;
+      --chart-short: #FF5252;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 40px; transition: background-color 0.3s ease, color 0.3s ease; }
+    .card, input, select, .order-block, header, .btn-calc-single, .dash-box { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+
+    header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; margin-right: 60px; margin-left: 20px;}
+    header p { font-size: 0.8rem; opacity: 0.9; margin-top: 4px; font-weight: 500; }
+
+    .btn-theme-toggle {
+      position: absolute;
+      top: 16px;
+      right: 12px;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+
+    .container { max-width: 520px; margin: 0 auto; padding: 12px; }
+
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    
+    input, select {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--input-text);
+      outline: none;
+      background-color: var(--input-bg);
+    }
+    input:focus, select:focus { border-color: var(--primary); }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .dash-box {
+      background: var(--card);
+      padding: 10px 4px;
+      border-radius: 10px;
+      text-align: center;
+      border-left: 4px solid var(--primary);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .dash-box.blue { border-left-color: var(--info); }
+    .dash-box.red { border-left-color: var(--danger); }
+    .dash-box span { font-size: 0.75rem; font-weight: 700; color: var(--text); display: block; white-space: normal; margin-bottom: 4px; line-height: 1.2; }
+    .dash-box strong { font-size: 1.05rem; font-weight: 800; word-break: break-word; }
+    .dash-box strong.money-blue { color: var(--info); }
+    .dash-box strong.money-red { color: var(--danger); }
+
+    .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 160px; padding-top: 20px; gap: 4px; }
+    .chart-bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; justify-content: flex-end; }
+    .chart-bar-wrapper { width: 100%; max-width: 24px; display: flex; flex-direction: column; justify-content: flex-end; height: 100px; }
+    .chart-bar-short { background: var(--chart-short); width: 100%; border-radius: 4px 4px 0 0; transition: height 0.5s; opacity: 0.9; }
+    .chart-bar-base { background: var(--chart-base); width: 100%; border-radius: 4px 4px 0 0; transition: height 0.5s; margin-top: 1px; }
+    .chart-label { font-size: 0.65rem; color: var(--sub); margin-top: 6px; font-weight: bold; }
+    .chart-val { font-size: 0.7rem; font-weight: 800; color: var(--text); margin-bottom: 4px; text-align:center; }
+
+    .order-block {
+      background: var(--order-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .order-block-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .order-title { font-weight: 800; font-size: 1.05rem; color: var(--primary-dark); }
+    .btn-remove-order { background: none; border: none; color: var(--danger); font-size: 0.85rem; cursor: pointer; font-weight: 700; }
+
+    .time-picker-row { display: flex; align-items: center; gap: 6px; }
+    .time-picker-row select { flex: 1; height: 42px; font-size: 1rem; min-width: 0; }
+    .time-picker-row span { font-weight: 900; color: var(--text); }
+
+    .btn-time-now {
+      background: var(--btn-light-bg);
+      color: var(--time-btn-text);
+      border: 1px solid var(--time-btn-border);
+      padding: 0 10px;
+      height: 42px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 800;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn-time-now:active { background: var(--time-btn-border); color: var(--time-btn-active-text); }
+
+    .live-panel {
+      background: var(--live-panel-bg);
+      color: #FFFFFF;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-top: 10px;
+      margin-bottom: 12px;
+      display: none; 
+      justify-content: space-between;
+      align-items: center;
+      border-left: 4px solid var(--primary);
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+    }
+    .live-panel div { font-size: 0.95rem; font-weight: 700; }
+    .live-panel strong { font-size: 1.25rem; font-family: monospace; letter-spacing: 1px; }
+
+    .btn-calc-single {
+      width: 100%;
+      background: var(--btn-calc-bg);
+      color: var(--btn-calc-text);
+      border: 1px solid var(--btn-calc-border);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      margin-top: 10px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-calc-single:active { opacity: 0.8; }
+
+    .calc-result-badge { display: none; margin-top: 8px; padding: 10px; border-radius: 8px; font-size: 0.9rem; line-height: 1.5; }
+    .calc-result-badge.success { display: block; background: var(--result-covered-bg); border: 1px solid var(--result-covered-border); color: var(--result-covered-text); }
+
+    .btn-add-batch {
+      width: 100%;
+      background: var(--card);
+      color: var(--add-btn-text);
+      border: 2px dashed var(--add-btn-border);
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .btn-add-batch:active { opacity: 0.7; }
+    
+    .btn-sm {
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 600;
+      text-align: center;
+    }
+    .btn-sm:active { opacity: 0.7; }
+
+    .item-card { background: var(--card); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); }
+    .item-info { font-size: 0.85rem; line-height: 1.5; }
+    .item-info .title { font-weight: 800; font-size: 0.95rem; margin-bottom: 2px; }
+    .item-info .detail { color: var(--sub); font-size: 0.85rem; font-weight: 600; }
+    .item-diff { text-align: right; }
+    .diff-badge { font-size: 0.85rem; padding: 3px 8px; border-radius: 4px; background: var(--badge-bg); color: var(--badge-text); font-weight: 700; display: inline-block; }
+    .diff-badge.needs-pay { background: var(--badge-pay-bg); color: var(--danger); }
+    
+    .action-btns { display: flex; align-items: center; gap: 8px; }
+    .edit-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--info); padding: 4px; transition: opacity 0.2s; }
+    .edit-btn:hover { opacity: 0.7; }
+    .del-btn { color: var(--sub); background: none; border: none; font-size: 1.4rem; padding-left: 4px; cursor: pointer; transition: color 0.2s; }
+    .del-btn:hover { color: var(--danger); }
+
+    .reminder-text { display: none; }
+
+    @media (max-width: 430px) {
+      .dashboard { gap: 4px; }
+      .dash-box { padding: 8px 2px; }
+      .dash-box span { font-size: 0.65rem; }
+      .dash-box strong { font-size: 0.95rem; }
+      .time-picker-row { gap: 4px; }
+      .time-picker-row select { padding: 8px 4px; font-size: 0.9rem; }
+      .btn-time-now { padding: 0 6px; font-size: 0.75rem; }
+      label { font-size: 0.9rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>外送員補差額記帳本</h1>
+    <button id="themeToggleBtn" class="btn-theme-toggle" onclick="toggleTheme()">☕ 深焙</button>
+  </header>
+
+  <div class="container">
+    
+    <div class="card" style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+      <label style="margin: 0; font-size: 0.9rem;">保障基本時薪 ($/小時):</label>
+      <input type="number" id="hourlyRate" value="245" style="width: 85px; padding: 4px 8px; text-align: right; margin-bottom: 0;" onchange="saveRate()">
+    </div>
+
+    <!-- 看板 -->
+    <div class="dashboard">
+      <div class="dash-box">
+        <span>單數/時間</span>
+        <strong id="totalOrders">0單/0分</strong>
+      </div>
+      <div class="dash-box blue">
+        <span>跑單金額</span>
+        <strong class="money-blue" id="totalBasePay">$0</strong>
+      </div>
+      <div class="dash-box red">
+        <span>應補差額</span>
+        <strong class="money-red" id="totalShortage">$0</strong>
+      </div>
+    </div>
+
+    <!-- 記帳輸入區 -->
+    <div class="card">
+      <form id="recordForm">
+        <div id="ordersContainer"></div>
+        <button type="button" class="btn-add-batch" id="btnAddBatch" onclick="addOrderBlock()">＋ 新增夾單 (目前 1/3 單)</button>
+      </form>
+    </div>
+
+    <!-- 本週跑單趨勢圖 -->
+    <div class="card" id="chartCard">
+      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 24px;">📊 本週跑單趨勢 (週一至週日)</div>
+      <div class="chart-container" id="weeklyChart"></div>
+    </div>
+
+    <!-- 歷史明細與日期篩選器 -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 4px 8px 4px;">
+      <span style="font-weight: 800; font-size: 0.95rem; color: var(--text);">📅 跑單紀錄</span>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <select id="dateFilter" onchange="changeDateFilter()" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; font-weight: 700;"></select>
+        <button class="btn-sm" style="padding:6px;" onclick="exportCSV()">匯出 CSV</button>
+      </div>
+    </div>
+
+    <div id="recordsList"></div>
+
+    <!-- 資料安全與備份區塊 -->
+    <div class="card" style="margin-top: 24px;">
+      <div style="font-weight: 800; font-size: 0.95rem; margin-bottom: 12px; color: var(--text);">⚙️ 資料安全與備份 (雲端)</div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn-sm" style="flex: 1; border-color: var(--primary); color: var(--primary-dark);" onclick="backupJSON()">📥 產生備份檔</button>
+        <label class="btn-sm" style="flex: 1; margin: 0; display: flex; justify-content: center; align-items: center;">
+          📤 還原紀錄
+          <input type="file" accept=".json" style="display:none;" onchange="restoreJSON(event)">
+        </label>
+      </div>
+      <p style="font-size: 0.75rem; color: var(--sub); margin-top: 10px; line-height: 1.4;">
+        * 點擊「產生備份檔」後，可將檔案儲存至手機原生的 iCloud 或 Google Drive 雲端硬碟。
+      </p>
+    </div>
+
+  </div>
+
   <!-- 編輯歷史紀錄的彈出視窗 (Modal) -->
   <div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(3px);">
     <div class="card" style="width: 90%; max-width: 400px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin: 0;">
