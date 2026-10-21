@@ -382,12 +382,10 @@
         </div>
       </div>
       
+      <!-- 🔥 修正為：直接輸入耗時（分鐘），以符合 Uber 行程明細 -->
       <div class="form-group">
-        <label>送達時間 (結束)</label>
-        <div class="time-picker-row">
-          <select id="edit_endH"></select><span>:</span>
-          <select id="edit_endM"></select>
-        </div>
+        <label>耗時 (分鐘)</label>
+        <input type="number" id="edit_duration" step="1" min="1" style="width:100%;">
       </div>
       
       <div style="display: flex; gap: 10px; margin-top: 24px;">
@@ -398,14 +396,14 @@
   </div>
 
   <script>
-    // 🔥 iOS 語音解鎖機制
+    // iOS 語音解鎖機制
     let speechUnlocked = false;
     function unlockSpeech() {
       if ('speechSynthesis' in window) {
-        window.speechSynthesis.resume(); // 喚醒休眠的語音引擎
+        window.speechSynthesis.resume();
         if (!speechUnlocked) {
           const u = new SpeechSynthesisUtterance('');
-          u.volume = 0; // 無聲播放騙過審查
+          u.volume = 0; 
           window.speechSynthesis.speak(u);
           speechUnlocked = true;
           document.removeEventListener('touchstart', unlockSpeech);
@@ -413,7 +411,6 @@
         }
       }
     }
-    // 綁定全域點擊事件，確保一進網頁碰到畫面就解鎖
     document.addEventListener('touchstart', unlockSpeech);
     document.addEventListener('click', unlockSpeech);
 
@@ -451,10 +448,9 @@
       const v = i.toString().padStart(2, '0'); minOptionsHTML += `<option value="${v}">${v} 分</option>`;
     }
 
+    // 編輯視窗現在只需要起始時間的選單
     document.getElementById('edit_startH').innerHTML = hourOptionsHTML;
     document.getElementById('edit_startM').innerHTML = minOptionsHTML;
-    document.getElementById('edit_endH').innerHTML = hourOptionsHTML;
-    document.getElementById('edit_endM').innerHTML = minOptionsHTML;
 
     function addOrderBlock() {
       triggerVibrate(30);
@@ -467,7 +463,6 @@
 
       const block = document.createElement('div'); block.className = 'order-block'; block.id = `order_block_${index}`;
       
-      // 綁定語音提醒標記
       block.dataset.voiceReminded = 'false';
 
       block.innerHTML = `
@@ -533,12 +528,12 @@
         const totalSeconds = Math.floor(diffMs / 1000); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60;
         document.getElementById(`live_time_${index}`).textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
         
-        // 🔥 10分鐘 (600秒) 專屬語音提醒
+        // 10分鐘 (600秒) 專屬語音提醒
         if (totalSeconds >= 600) {
           if (block.dataset.voiceReminded !== 'true') {
             block.dataset.voiceReminded = 'true';
             if ('speechSynthesis' in window) {
-              window.speechSynthesis.resume(); // 強制喚醒 iOS 引擎
+              window.speechSynthesis.resume(); 
               window.speechSynthesis.cancel();
               const utterance = new SpeechSynthesisUtterance('阿ㄅ，完成訂單後，記得按結束餒，哉某');
               utterance.lang = 'zh-TW';
@@ -632,9 +627,8 @@
       document.getElementById('edit_startH').value = sh;
       document.getElementById('edit_startM').value = sm;
       
-      const [eh, em] = r.endTime.split(':');
-      document.getElementById('edit_endH').value = eh;
-      document.getElementById('edit_endM').value = em;
+      // 🔥 直接帶入歷史紀錄的耗時分鐘數
+      document.getElementById('edit_duration').value = r.duration;
       
       document.getElementById('editModal').style.display = 'flex';
     }
@@ -644,18 +638,22 @@
       document.getElementById('editModal').style.display = 'none';
     }
 
+    // 🔥 儲存編輯，根據輸入的「耗時分鐘」自動回推「結束時間」並重新計算
     function saveEdit() {
       triggerVibrate(50);
       const id = parseInt(document.getElementById('edit_id').value, 10);
       const basePay = parseFloat(document.getElementById('edit_basePay').value);
       const sh = parseInt(document.getElementById('edit_startH').value, 10);
       const sm = parseInt(document.getElementById('edit_startM').value, 10);
-      const eh = parseInt(document.getElementById('edit_endH').value, 10);
-      const em = parseInt(document.getElementById('edit_endM').value, 10);
+      const duration = parseInt(document.getElementById('edit_duration').value, 10);
       
       if (isNaN(basePay) || basePay <= 0) { alert('車資不能為空白或小於0！'); return; }
-      const duration = calcDuration(sh, sm, eh, em);
-      if (duration <= 0) { alert('請確認送達時間與接單時間是否合理！'); return; }
+      if (isNaN(duration) || duration <= 0) { alert('請輸入合理的耗時分鐘數！'); return; }
+      
+      // 根據起始時間和耗時，計算新的送達時間 (處理跨小時、跨夜邏輯)
+      let endTotalMin = (sh * 60 + sm) + duration;
+      let eh = Math.floor(endTotalMin / 60) % 24;
+      let em = endTotalMin % 60;
       
       const hourlyRate = parseFloat(document.getElementById('hourlyRate').value) || 245;
       const ratePerMin = hourlyRate / 60;
