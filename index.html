@@ -709,7 +709,7 @@
       // 🔥 更新標題，將本週總金額顯示在右側
       const titleEl = document.getElementById('weeklyChartTitle');
       if (titleEl) {
-        titleEl.innerHTML = `<span>📊 本週跑單趨勢 (週一至週日)</span><span style="color: var(--primary); font-size: 1.15rem;">$${Math.round(weeklyTotal)}</span>`;
+        titleEl.innerHTML = `<span>📊 本週跑單趨勢 </span><span style="color: var(--primary); font-size: 1.15rem;">$${Math.round(weeklyTotal)}</span>`;
       }
 
       chartData.forEach(d => {
