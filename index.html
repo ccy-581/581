@@ -331,7 +331,11 @@
 
     <!-- 本週跑單趨勢圖 -->
     <div class="card" id="chartCard">
-      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 24px;">📊 本週跑單趨勢 (週一至週日)</div>
+      <!-- 🔥 標題區塊更新：分為左右兩側，右側顯示本週總金額 -->
+      <div id="weeklyChartTitle" style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+        <span>📊 本週跑單趨勢</span>
+        <span style="color: var(--primary); font-size: 1.15rem;">$0</span>
+      </div>
       <div class="chart-container" id="weeklyChart"></div>
     </div>
 
@@ -363,7 +367,7 @@
 
   </div>
 
-  <!-- 🔥 編輯歷史紀錄的彈出視窗 (Modal) -->
+  <!-- 編輯歷史紀錄的彈出視窗 (Modal) -->
   <div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(3px);">
     <div class="card" style="width: 90%; max-width: 400px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin: 0;">
       <h3 style="margin-bottom: 16px; color: var(--primary); font-weight: 800;">✏️ 修正歷史訂單</h3>
@@ -382,7 +386,6 @@
         </div>
       </div>
       
-      <!-- 🔥 這裡已經徹底改成只輸入總耗時(分鐘) -->
       <div class="form-group">
         <label>總耗時 (分鐘)</label>
         <input type="number" id="edit_duration" step="1" min="1" placeholder="例如: 32" style="width:100%;">
@@ -448,7 +451,7 @@
       const v = i.toString().padStart(2, '0'); minOptionsHTML += `<option value="${v}">${v} 分</option>`;
     }
 
-    // 編輯視窗只剩下起始時間的下拉選單
+    // 編輯視窗的選項初始化
     document.getElementById('edit_startH').innerHTML = hourOptionsHTML;
     document.getElementById('edit_startM').innerHTML = minOptionsHTML;
 
@@ -627,7 +630,6 @@
       document.getElementById('edit_startH').value = sh;
       document.getElementById('edit_startM').value = sm;
       
-      // 🔥 直接帶入歷史紀錄的耗時分鐘數，讓你不用算
       document.getElementById('edit_duration').value = r.duration;
       
       document.getElementById('editModal').style.display = 'flex';
@@ -638,7 +640,6 @@
       document.getElementById('editModal').style.display = 'none';
     }
 
-    // 🔥 儲存編輯，根據輸入的「耗時分鐘」自動推算「結束時間」並重新計算
     function saveEdit() {
       triggerVibrate(50);
       const id = parseInt(document.getElementById('edit_id').value, 10);
@@ -650,7 +651,6 @@
       if (isNaN(basePay) || basePay <= 0) { alert('車資不能為空白或小於0！'); return; }
       if (isNaN(duration) || duration <= 0) { alert('耗時必須是大於0的分鐘數！'); return; }
       
-      // 自動根據起始時間 + 耗時，回推新的結束時間
       let endTotalMin = (sh * 60 + sm) + duration;
       let eh = Math.floor(endTotalMin / 60) % 24;
       let em = endTotalMin % 60;
@@ -697,7 +697,20 @@
       let chartData = days.map(d => ({ date: d.dateStr, label: d.dayLabel, base: 0, short: 0 }));
       records.forEach(r => { const idx = chartData.findIndex(cd => cd.date === r.date); if(idx !== -1) { chartData[idx].base += r.basePay; chartData[idx].short += r.shortage; } });
 
-      let maxTotal = 100; chartData.forEach(d => { const total = d.base + d.short; if(total > maxTotal) maxTotal = total; });
+      let maxTotal = 100; 
+      let weeklyTotal = 0; // 🔥 計算本週總金額
+      
+      chartData.forEach(d => { 
+        const total = d.base + d.short; 
+        weeklyTotal += total; // 🔥 累加本週金額
+        if(total > maxTotal) maxTotal = total; 
+      });
+
+      // 🔥 更新標題，將本週總金額顯示在右側
+      const titleEl = document.getElementById('weeklyChartTitle');
+      if (titleEl) {
+        titleEl.innerHTML = `<span>📊 本週跑單趨勢 (週一至週日)</span><span style="color: var(--primary); font-size: 1.15rem;">$${Math.round(weeklyTotal)}</span>`;
+      }
 
       chartData.forEach(d => {
         const total = d.base + d.short; const scale = 90 / maxTotal; const baseHeight = d.base * scale; const shortHeight = d.short * scale;
