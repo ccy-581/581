@@ -160,9 +160,10 @@
     .dash-box strong.money-blue { color: var(--info); }
     .dash-box strong.money-red { color: var(--danger); }
 
-    .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 160px; padding-top: 20px; gap: 4px; }
+    /* 🔥 圖表區塊高度與內部空間拉大，避免數字頂到標題 */
+    .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 130px; padding-top: 25px; gap: 4px; }
     .chart-bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; justify-content: flex-end; }
-    .chart-bar-wrapper { width: 100%; max-width: 24px; display: flex; flex-direction: column; justify-content: flex-end; height: 100px; }
+    .chart-bar-wrapper { width: 100%; max-width: 24px; display: flex; flex-direction: column; justify-content: flex-end; height: 80px; }
     .chart-bar-short { background: var(--chart-short); width: 100%; border-radius: 4px 4px 0 0; transition: height 0.5s; opacity: 0.9; }
     .chart-bar-base { background: var(--chart-base); width: 100%; border-radius: 4px 4px 0 0; transition: height 0.5s; margin-top: 1px; }
     .chart-label { font-size: 0.65rem; color: var(--sub); margin-top: 6px; font-weight: bold; }
@@ -308,15 +309,15 @@
     <!-- 看板 -->
     <div class="dashboard">
       <div class="dash-box">
-        <span>單數/時間</span>
+        <span>單日/時間</span>
         <strong id="totalOrders">0單/0分</strong>
       </div>
       <div class="dash-box blue">
-        <span>跑單金額</span>
+        <span>單日跑單</span>
         <strong class="money-blue" id="totalBasePay">$0</strong>
       </div>
       <div class="dash-box red">
-        <span>應補差額</span>
+        <span>單日補差</span>
         <strong class="money-red" id="totalShortage">$0</strong>
       </div>
     </div>
@@ -329,13 +330,30 @@
       </form>
     </div>
 
-    <!-- 本週跑單趨勢圖 -->
-    <div class="card" id="chartCard">
-      <!-- 🔥 標題區塊更新：分為左右兩側，右側顯示本週總金額 -->
-      <div id="weeklyChartTitle" style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
-        <span>📊 本週跑單趨勢</span>
-        <span style="color: var(--primary); font-size: 1.15rem;">$0</span>
+    <!-- 獨立的本週總結看板區塊 (完美三等份) -->
+    <div class="card" id="weeklySummaryCard">
+      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 12px;">📅 本週總結 (一至日)</div>
+      
+      <div class="dashboard" style="margin-bottom: 0;">
+        <div class="dash-box">
+          <span>本週總計</span>
+          <strong style="color: var(--primary);" id="weeklyTotalText">$0</strong>
+        </div>
+        <div class="dash-box blue">
+          <span>本週跑單</span>
+          <strong class="money-blue" id="weeklyBaseText">$0</strong>
+        </div>
+        <div class="dash-box red">
+          <span>本週補差</span>
+          <strong class="money-red" id="weeklyShortText">$0</strong>
+        </div>
       </div>
+    </div>
+
+    <!-- 獨立的圖表區塊 -->
+    <div class="card" id="chartCard">
+      <!-- 🔥 增加下邊距，讓標題與圖表拉開距離 -->
+      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 20px;">📊 本週跑單趨勢</div>
       <div class="chart-container" id="weeklyChart"></div>
     </div>
 
@@ -399,7 +417,6 @@
   </div>
 
   <script>
-    // iOS 語音解鎖機制
     let speechUnlocked = false;
     function unlockSpeech() {
       if ('speechSynthesis' in window) {
@@ -451,7 +468,6 @@
       const v = i.toString().padStart(2, '0'); minOptionsHTML += `<option value="${v}">${v} 分</option>`;
     }
 
-    // 編輯視窗的選項初始化
     document.getElementById('edit_startH').innerHTML = hourOptionsHTML;
     document.getElementById('edit_startM').innerHTML = minOptionsHTML;
 
@@ -531,7 +547,6 @@
         const totalSeconds = Math.floor(diffMs / 1000); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60;
         document.getElementById(`live_time_${index}`).textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
         
-        // 10分鐘 (600秒) 專屬語音提醒
         if (totalSeconds >= 600) {
           if (block.dataset.voiceReminded !== 'true') {
             block.dataset.voiceReminded = 'true';
@@ -698,19 +713,24 @@
       records.forEach(r => { const idx = chartData.findIndex(cd => cd.date === r.date); if(idx !== -1) { chartData[idx].base += r.basePay; chartData[idx].short += r.shortage; } });
 
       let maxTotal = 100; 
-      let weeklyTotal = 0; // 🔥 計算本週總金額
+      let weeklyBaseTotal = 0;
+      let weeklyShortTotal = 0;
       
       chartData.forEach(d => { 
+        weeklyBaseTotal += d.base;
+        weeklyShortTotal += d.short;
         const total = d.base + d.short; 
-        weeklyTotal += total; // 🔥 累加本週金額
         if(total > maxTotal) maxTotal = total; 
       });
 
-      // 🔥 更新標題，將本週總金額顯示在右側
-      const titleEl = document.getElementById('weeklyChartTitle');
-      if (titleEl) {
-        titleEl.innerHTML = `<span>📊 本週跑單趨勢 </span><span style="color: var(--primary); font-size: 1.15rem;">$${Math.round(weeklyTotal)}</span>`;
-      }
+      const weeklyTotalEl = document.getElementById('weeklyTotalText');
+      if (weeklyTotalEl) weeklyTotalEl.innerText = `$${Math.round(weeklyBaseTotal + weeklyShortTotal)}`;
+
+      const weeklyBaseEl = document.getElementById('weeklyBaseText');
+      if (weeklyBaseEl) weeklyBaseEl.innerText = `$${Math.round(weeklyBaseTotal)}`;
+      
+      const weeklyShortEl = document.getElementById('weeklyShortText');
+      if (weeklyShortEl) weeklyShortEl.innerText = `$${Math.round(weeklyShortTotal)}`;
 
       chartData.forEach(d => {
         const total = d.base + d.short; const scale = 90 / maxTotal; const baseHeight = d.base * scale; const shortHeight = d.short * scale;
