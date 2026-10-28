@@ -15,6 +15,7 @@
       --sub: #4A4C50;
       --danger: #E41E3F;
       --info: #0A66C2;
+      --tip: #F59E0B;
       --border: #CED0D4;
       --order-bg: #F9FAFB;
       --input-bg: #FFFFFF;
@@ -53,6 +54,7 @@
       --sub: #D6D3D1;           
       --danger: #FF5252;        
       --info: #00FF66;          
+      --tip: #FCD34D;
       --border: #57534E;        
       --order-bg: #3A3532;      
       --input-bg: #1C1917;      
@@ -137,30 +139,29 @@
     }
     input:focus, select:focus { border-color: var(--primary); }
 
-    .dashboard {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 6px;
-      margin-bottom: 12px;
-    }
     .dash-box {
       background: var(--card);
       padding: 10px 4px;
       border-radius: 10px;
       text-align: center;
-      border-left: 4px solid var(--primary);
+      border-left: 4px solid var(--border);
       display: flex;
       flex-direction: column;
       justify-content: center;
     }
+    .dash-box.primary { border-left-color: var(--primary); }
     .dash-box.blue { border-left-color: var(--info); }
     .dash-box.red { border-left-color: var(--danger); }
+    .dash-box.yellow { border-left-color: var(--tip); }
+    
     .dash-box span { font-size: 0.75rem; font-weight: 700; color: var(--text); display: block; white-space: normal; margin-bottom: 4px; line-height: 1.2; }
     .dash-box strong { font-size: 1.05rem; font-weight: 800; word-break: break-word; }
+    .dash-box strong.money-primary { color: var(--primary); }
     .dash-box strong.money-blue { color: var(--info); }
     .dash-box strong.money-red { color: var(--danger); }
+    .dash-box strong.money-yellow { color: var(--tip); }
 
-    /* 🔥 圖表區塊高度與內部空間拉大，避免數字頂到標題 */
+    /* 圖表區塊 (不受小費影響) */
     .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 130px; padding-top: 25px; gap: 4px; }
     .chart-bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; justify-content: flex-end; }
     .chart-bar-wrapper { width: 100%; max-width: 24px; display: flex; flex-direction: column; justify-content: flex-end; height: 80px; }
@@ -268,20 +269,18 @@
     .item-info { font-size: 0.85rem; line-height: 1.5; }
     .item-info .title { font-weight: 800; font-size: 0.95rem; margin-bottom: 2px; }
     .item-info .detail { color: var(--sub); font-size: 0.85rem; font-weight: 600; }
-    .item-diff { text-align: right; }
+    .item-diff { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
     .diff-badge { font-size: 0.85rem; padding: 3px 8px; border-radius: 4px; background: var(--badge-bg); color: var(--badge-text); font-weight: 700; display: inline-block; }
     .diff-badge.needs-pay { background: var(--badge-pay-bg); color: var(--danger); }
+    .diff-badge.tip-badge { background: #FFF8E1; color: #F59E0B; border: 1px solid #FDE68A; }
     
-    .action-btns { display: flex; align-items: center; gap: 8px; }
+    .action-btns { display: flex; align-items: center; gap: 8px; margin-top: 4px;}
     .edit-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--info); padding: 4px; transition: opacity 0.2s; }
     .edit-btn:hover { opacity: 0.7; }
     .del-btn { color: var(--sub); background: none; border: none; font-size: 1.4rem; padding-left: 4px; cursor: pointer; transition: color 0.2s; }
     .del-btn:hover { color: var(--danger); }
 
-    .reminder-text { display: none; }
-
     @media (max-width: 430px) {
-      .dashboard { gap: 4px; }
       .dash-box { padding: 8px 2px; }
       .dash-box span { font-size: 0.65rem; }
       .dash-box strong { font-size: 0.95rem; }
@@ -306,19 +305,33 @@
       <input type="number" id="hourlyRate" value="245" style="width: 85px; padding: 4px 8px; text-align: right; margin-bottom: 0;" onchange="saveRate()">
     </div>
 
-    <!-- 看板 -->
-    <div class="dashboard">
-      <div class="dash-box">
-        <span>單日/時間</span>
-        <strong id="totalOrders">0單/0分</strong>
+    <!-- 🔥 單日總計看板 (上下層設計，保留三等份風格) -->
+    <div style="margin-bottom: 12px;">
+      <!-- 上層：單日時間與單日總實賺 -->
+      <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+        <div class="dash-box" style="flex: 1; padding: 8px 4px;">
+          <span>單日/時間</span>
+          <strong id="totalOrders">0單/0分</strong>
+        </div>
+        <div class="dash-box primary" style="flex: 1; padding: 8px 4px;">
+          <span>單日總實賺</span>
+          <strong class="money-primary" id="totalEarned">$0</strong>
+        </div>
       </div>
-      <div class="dash-box blue">
-        <span>單日跑單</span>
-        <strong class="money-blue" id="totalBasePay">$0</strong>
-      </div>
-      <div class="dash-box red">
-        <span>單日補差</span>
-        <strong class="money-red" id="totalShortage">$0</strong>
+      <!-- 下層：基本跑單、應補差額、小費 -->
+      <div style="display: flex; gap: 6px;">
+        <div class="dash-box blue" style="flex: 1; padding: 8px 4px;">
+          <span>跑單金額</span>
+          <strong class="money-blue" id="totalBasePay">$0</strong>
+        </div>
+        <div class="dash-box red" style="flex: 1; padding: 8px 4px;">
+          <span>應補差額</span>
+          <strong class="money-red" id="totalShortage">$0</strong>
+        </div>
+        <div class="dash-box yellow" style="flex: 1; padding: 8px 4px;">
+          <span>小費獎勵</span>
+          <strong class="money-yellow" id="totalTip">$0</strong>
+        </div>
       </div>
     </div>
 
@@ -330,30 +343,32 @@
       </form>
     </div>
 
-    <!-- 獨立的本週總結看板區塊 (完美三等份) -->
+    <!-- 🔥 本週總結看板 (三等份明細) -->
     <div class="card" id="weeklySummaryCard">
-      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 12px;">📅 本週總結 (一至日)</div>
+      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+        <span>📅 本週總結 (一至日)</span>
+        <span style="color: var(--primary); font-size: 1.25rem; font-weight: 900;" id="weeklyTotalText">$0</span>
+      </div>
       
-      <div class="dashboard" style="margin-bottom: 0;">
-        <div class="dash-box">
-          <span>本週總計</span>
-          <strong style="color: var(--primary);" id="weeklyTotalText">$0</strong>
+      <div style="display: flex; gap: 6px; margin-bottom: 0;">
+        <div class="dash-box blue" style="flex: 1; margin: 0; padding: 10px 2px;">
+          <span style="font-size: 0.7rem; margin-bottom: 4px;">本週跑單</span>
+          <strong class="money-blue" id="weeklyBaseText" style="font-size: 1rem;">$0</strong>
         </div>
-        <div class="dash-box blue">
-          <span>本週跑單</span>
-          <strong class="money-blue" id="weeklyBaseText">$0</strong>
+        <div class="dash-box red" style="flex: 1; margin: 0; padding: 10px 2px;">
+          <span style="font-size: 0.7rem; margin-bottom: 4px;">本週補差</span>
+          <strong class="money-red" id="weeklyShortText" style="font-size: 1rem;">$0</strong>
         </div>
-        <div class="dash-box red">
-          <span>本週補差</span>
-          <strong class="money-red" id="weeklyShortText">$0</strong>
+        <div class="dash-box yellow" style="flex: 1; margin: 0; padding: 10px 2px;">
+          <span style="font-size: 0.7rem; margin-bottom: 4px;">本週小費</span>
+          <strong class="money-yellow" id="weeklyTipText" style="font-size: 1rem;">$0</strong>
         </div>
       </div>
     </div>
 
-    <!-- 獨立的圖表區塊 -->
+    <!-- 獨立的圖表區塊 (純顯示跑單與補差) -->
     <div class="card" id="chartCard">
-      <!-- 🔥 增加下邊距，讓標題與圖表拉開距離 -->
-      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 20px;">📊 本週跑單趨勢</div>
+      <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 20px;">📊 本週跑單趨勢 (不含小費)</div>
       <div class="chart-container" id="weeklyChart"></div>
     </div>
 
@@ -396,6 +411,12 @@
         <input type="number" id="edit_basePay" step="0.1" style="width:100%;">
       </div>
       
+      <!-- 🔥 編輯視窗加入小費欄位 -->
+      <div class="form-group">
+        <label>小費 ($) (選填)</label>
+        <input type="number" id="edit_tip" step="1" style="width:100%;">
+      </div>
+
       <div class="form-group">
         <label>接單時間 (起始)</label>
         <div class="time-picker-row">
@@ -417,6 +438,7 @@
   </div>
 
   <script>
+    // iOS 語音解鎖機制
     let speechUnlocked = false;
     function unlockSpeech() {
       if ('speechSynthesis' in window) {
@@ -489,10 +511,19 @@
           <span class="order-title">${titleText}</span>
           ${!isFirst ? `<button type="button" class="btn-remove-order" onclick="removeOrderBlock(${index})">✕ 移除此夾單</button>` : ''}
         </div>
-        <div class="form-group">
-          <label>行程費用 ($)</label>
-          <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
+        
+        <!-- 🔥 拆分車資與小費輸入欄位 -->
+        <div style="display: flex; gap: 8px;">
+          <div class="form-group" style="flex: 1;">
+            <label>行程費用 ($)</label>
+            <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label style="color: var(--tip);">小費 ($)</label>
+            <input type="number" id="tip_${index}" step="1" placeholder="選填" style="width:100%;">
+          </div>
         </div>
+
         <div class="form-group">
           <label>接單時間 (起始)</label>
           <div class="time-picker-row">
@@ -577,29 +608,45 @@
 
     function calculateAndSaveOrder(index) {
       triggerVibrate(60); 
-      const basePayInput = document.getElementById(`basePay_${index}`); const basePayVal = parseFloat(basePayInput.value);
+      const basePayInput = document.getElementById(`basePay_${index}`); 
+      const basePayVal = parseFloat(basePayInput.value);
+      const tipVal = parseFloat(document.getElementById(`tip_${index}`).value) || 0; // 讀取小費
+
       if (isNaN(basePayVal) || basePayVal <= 0) { alert('請先輸入此單的實收車資！'); basePayInput.focus(); return; }
+      
       const sh = parseInt(document.getElementById(`startH_${index}`).value || '0', 10); const sm = parseInt(document.getElementById(`startM_${index}`).value || '0', 10);
       const eh = parseInt(document.getElementById(`endH_${index}`).value || '0', 10); const em = parseInt(document.getElementById(`endM_${index}`).value || '0', 10);
       const duration = calcDuration(sh, sm, eh, em);
+      
       if (duration <= 0) { alert('請確認送達時間與接單時間！'); return; }
-      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245; const ratePerMin = rate / 60; const coveredMin = basePayVal / ratePerMin;
+      
+      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245; 
+      const ratePerMin = rate / 60; 
+      const coveredMin = basePayVal / ratePerMin; // 小費不計入補差額公式
+      
       let shortage = 0; let overMin = 0;
       if (duration > coveredMin) { overMin = duration - coveredMin; shortage = Math.round((overMin * ratePerMin) * 10) / 10; }
+      
       const sH_str = sh.toString().padStart(2, '0'); const sM_str = sm.toString().padStart(2, '0');
       const eH_str = eh.toString().padStart(2, '0'); const eM_str = em.toString().padStart(2, '0');
       
       const dateStr = getShiftDate();
       const titleSpan = document.querySelector(`#order_block_${index} .order-title`); const orderTitle = titleSpan ? titleSpan.textContent : '外送訂單';
 
-      records.unshift({ id: Date.now(), date: dateStr, orderTitle: orderTitle, startTime: `${sH_str}:${sM_str}`, endTime: `${eH_str}:${eM_str}`, duration, basePay: basePayVal, shortage: shortage });
+      records.unshift({ 
+        id: Date.now(), date: dateStr, orderTitle: orderTitle, 
+        startTime: `${sH_str}:${sM_str}`, endTime: `${eH_str}:${eM_str}`, 
+        duration: duration, basePay: basePayVal, tip: tipVal, shortage: shortage 
+      });
+      
       localStorage.setItem('delivery_records', JSON.stringify(records)); currentFilter = dateStr;
 
       const blocks = Array.from(document.querySelectorAll('#ordersContainer .order-block'));
       const isFirstBlock = (blocks.length > 0 && blocks[0].id === `order_block_${index}`);
       if (!isFirstBlock) { removeOrderBlock(index); render(); return; }
       
-      basePayInput.value = ''; document.getElementById(`startH_${index}`).value = '00'; document.getElementById(`startM_${index}`).value = '00';
+      basePayInput.value = ''; document.getElementById(`tip_${index}`).value = '';
+      document.getElementById(`startH_${index}`).value = '00'; document.getElementById(`startM_${index}`).value = '00';
       document.getElementById(`endH_${index}`).value = '00'; document.getElementById(`endM_${index}`).value = '00';
       const block = document.getElementById(`order_block_${index}`);
       block.dataset.started = 'false'; block.dataset.ended = 'false'; block.dataset.voiceReminded = 'false';
@@ -640,6 +687,7 @@
       
       document.getElementById('edit_id').value = r.id;
       document.getElementById('edit_basePay').value = r.basePay;
+      document.getElementById('edit_tip').value = r.tip || 0; // 帶入小費
       
       const [sh, sm] = r.startTime.split(':');
       document.getElementById('edit_startH').value = sh;
@@ -659,6 +707,7 @@
       triggerVibrate(50);
       const id = parseInt(document.getElementById('edit_id').value, 10);
       const basePay = parseFloat(document.getElementById('edit_basePay').value);
+      const tipVal = parseFloat(document.getElementById('edit_tip').value) || 0;
       const sh = parseInt(document.getElementById('edit_startH').value, 10);
       const sm = parseInt(document.getElementById('edit_startM').value, 10);
       const duration = parseInt(document.getElementById('edit_duration').value, 10);
@@ -682,6 +731,7 @@
       const idx = records.findIndex(rec => rec.id === id);
       if (idx !== -1) {
         records[idx].basePay = basePay;
+        records[idx].tip = tipVal;
         records[idx].startTime = `${sh.toString().padStart(2, '0')}:${sm.toString().padStart(2, '0')}`;
         records[idx].endTime = `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}`;
         records[idx].duration = duration;
@@ -710,12 +760,29 @@
       }
 
       let chartData = days.map(d => ({ date: d.dateStr, label: d.dayLabel, base: 0, short: 0 }));
-      records.forEach(r => { const idx = chartData.findIndex(cd => cd.date === r.date); if(idx !== -1) { chartData[idx].base += r.basePay; chartData[idx].short += r.shortage; } });
+      
+      records.forEach(r => { 
+        const idx = chartData.findIndex(cd => cd.date === r.date); 
+        if(idx !== -1) { 
+          chartData[idx].base += r.basePay; 
+          chartData[idx].short += r.shortage; 
+          // 圖表完全不介入小費計算
+        } 
+      });
 
       let maxTotal = 100; 
       let weeklyBaseTotal = 0;
       let weeklyShortTotal = 0;
+      let weeklyTipTotal = 0;
       
+      records.forEach(r => {
+        // 算出本週小費總合
+        const idx = chartData.findIndex(cd => cd.date === r.date); 
+        if (idx !== -1) {
+           weeklyTipTotal += (r.tip || 0);
+        }
+      });
+
       chartData.forEach(d => { 
         weeklyBaseTotal += d.base;
         weeklyShortTotal += d.short;
@@ -724,13 +791,16 @@
       });
 
       const weeklyTotalEl = document.getElementById('weeklyTotalText');
-      if (weeklyTotalEl) weeklyTotalEl.innerText = `$${Math.round(weeklyBaseTotal + weeklyShortTotal)}`;
+      if (weeklyTotalEl) weeklyTotalEl.innerText = `$${Math.round(weeklyBaseTotal + weeklyShortTotal + weeklyTipTotal)}`;
 
       const weeklyBaseEl = document.getElementById('weeklyBaseText');
       if (weeklyBaseEl) weeklyBaseEl.innerText = `$${Math.round(weeklyBaseTotal)}`;
       
       const weeklyShortEl = document.getElementById('weeklyShortText');
       if (weeklyShortEl) weeklyShortEl.innerText = `$${Math.round(weeklyShortTotal)}`;
+
+      const weeklyTipEl = document.getElementById('weeklyTipText');
+      if (weeklyTipEl) weeklyTipEl.innerText = `$${Math.round(weeklyTipTotal)}`;
 
       chartData.forEach(d => {
         const total = d.base + d.short; const scale = 90 / maxTotal; const baseHeight = d.base * scale; const shortHeight = d.short * scale;
@@ -786,13 +856,14 @@
       let filteredRecords = records;
       if (currentFilter !== 'ALL') filteredRecords = records.filter(r => r.date === currentFilter);
 
-      let totalMinutes = 0; let totalBasePay = 0; let totalShortage = 0;
+      let totalMinutes = 0; let totalBasePay = 0; let totalShortage = 0; let totalTip = 0;
 
       if (filteredRecords.length === 0) {
         listEl.innerHTML = `<div style="text-align: center; color: var(--sub); padding: 24px 0; font-weight:bold;">此日期尚無紀錄</div>`;
       } else {
         filteredRecords.forEach(r => {
-          totalMinutes += r.duration; totalBasePay += r.basePay; totalShortage += r.shortage;
+          const tip = r.tip || 0;
+          totalMinutes += r.duration; totalBasePay += r.basePay; totalShortage += r.shortage; totalTip += tip;
           const card = document.createElement('div'); card.className = 'item-card';
           card.innerHTML = `
             <div class="item-info">
@@ -800,12 +871,13 @@
               <div class="detail">${r.startTime} ➜ ${r.endTime} (共 ${r.duration} 分鐘)</div>
               <div class="detail">實收車資: $${r.basePay}</div>
             </div>
-            <div class="action-btns">
-              <div class="item-diff">
-                ${r.shortage > 0 ? `<span class="diff-badge needs-pay">補 $${r.shortage}</span>` : `<span class="diff-badge">達標</span>`}
+            <div class="item-diff">
+              ${r.shortage > 0 ? `<span class="diff-badge needs-pay">補 $${r.shortage}</span>` : `<span class="diff-badge">達標</span>`}
+              ${tip > 0 ? `<span class="diff-badge tip-badge">+$${tip} 小費</span>` : ''}
+              <div class="action-btns">
+                <button class="edit-btn" onclick="openEditModal(${r.id})">✏️</button>
+                <button class="del-btn" onclick="deleteRecord(${r.id})">×</button>
               </div>
-              <button class="edit-btn" onclick="openEditModal(${r.id})">✏️</button>
-              <button class="del-btn" onclick="deleteRecord(${r.id})">×</button>
             </div>
           `;
           listEl.appendChild(card);
@@ -816,6 +888,12 @@
       document.getElementById('totalBasePay').innerText = `$${Math.round(totalBasePay)}`;
       document.getElementById('totalShortage').innerText = `$${Math.round(totalShortage)}`;
       
+      const totalEarnedEl = document.getElementById('totalEarned');
+      if (totalEarnedEl) totalEarnedEl.innerText = `$${Math.round(totalBasePay + totalShortage + totalTip)}`;
+
+      const totalTipEl = document.getElementById('totalTip');
+      if (totalTipEl) totalTipEl.innerText = `$${Math.round(totalTip)}`;
+      
       renderChart();
     }
 
@@ -824,8 +902,8 @@
       if (currentFilter !== 'ALL') { filteredRecords = records.filter(r => r.date === currentFilter); }
       if (filteredRecords.length === 0) return alert('此日期無資料可匯出');
       
-      let csvContent = "日期,組別,接單時間,送達時間,耗時(分),車資,應補差額\n";
-      filteredRecords.forEach(r => { csvContent += `"${r.date}","${r.orderTitle || '一般'}","${r.startTime}","${r.endTime}",${r.duration},${r.basePay},${r.shortage}\n`; });
+      let csvContent = "日期,組別,接單時間,送達時間,耗時(分),車資,應補差額,小費\n";
+      filteredRecords.forEach(r => { csvContent += `"${r.date}","${r.orderTitle || '一般'}","${r.startTime}","${r.endTime}",${r.duration},${r.basePay},${r.shortage},${r.tip || 0}\n`; });
 
       const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
