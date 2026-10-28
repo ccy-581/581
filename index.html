@@ -161,7 +161,6 @@
     .dash-box strong.money-red { color: var(--danger); }
     .dash-box strong.money-yellow { color: var(--tip); }
 
-    /* 圖表區塊 (不受小費影響) */
     .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 130px; padding-top: 25px; gap: 4px; }
     .chart-bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; justify-content: flex-end; }
     .chart-bar-wrapper { width: 100%; max-width: 24px; display: flex; flex-direction: column; justify-content: flex-end; height: 80px; }
@@ -305,9 +304,8 @@
       <input type="number" id="hourlyRate" value="245" style="width: 85px; padding: 4px 8px; text-align: right; margin-bottom: 0;" onchange="saveRate()">
     </div>
 
-    <!-- 🔥 單日總計看板 (上下層設計，保留三等份風格) -->
+    <!-- 單日總計看板 -->
     <div style="margin-bottom: 12px;">
-      <!-- 上層：單日時間與單日總實賺 -->
       <div style="display: flex; gap: 6px; margin-bottom: 6px;">
         <div class="dash-box" style="flex: 1; padding: 8px 4px;">
           <span>單日/時間</span>
@@ -318,7 +316,6 @@
           <strong class="money-primary" id="totalEarned">$0</strong>
         </div>
       </div>
-      <!-- 下層：基本跑單、應補差額、小費 -->
       <div style="display: flex; gap: 6px;">
         <div class="dash-box blue" style="flex: 1; padding: 8px 4px;">
           <span>跑單金額</span>
@@ -343,7 +340,7 @@
       </form>
     </div>
 
-    <!-- 🔥 本週總結看板 (三等份明細) -->
+    <!-- 本週總結看板 (三等份明細) -->
     <div class="card" id="weeklySummaryCard">
       <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
         <span>📅 本週總結 (一至日)</span>
@@ -411,7 +408,6 @@
         <input type="number" id="edit_basePay" step="0.1" style="width:100%;">
       </div>
       
-      <!-- 🔥 編輯視窗加入小費欄位 -->
       <div class="form-group">
         <label>小費 ($) (選填)</label>
         <input type="number" id="edit_tip" step="1" style="width:100%;">
@@ -438,7 +434,6 @@
   </div>
 
   <script>
-    // iOS 語音解鎖機制
     let speechUnlocked = false;
     function unlockSpeech() {
       if ('speechSynthesis' in window) {
@@ -512,16 +507,9 @@
           ${!isFirst ? `<button type="button" class="btn-remove-order" onclick="removeOrderBlock(${index})">✕ 移除此夾單</button>` : ''}
         </div>
         
-        <!-- 🔥 拆分車資與小費輸入欄位 -->
-        <div style="display: flex; gap: 8px;">
-          <div class="form-group" style="flex: 1;">
-            <label>行程費用 ($)</label>
-            <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
-          </div>
-          <div class="form-group" style="flex: 1;">
-            <label style="color: var(--tip);">小費 ($)</label>
-            <input type="number" id="tip_${index}" step="1" placeholder="選填" style="width:100%;">
-          </div>
+        <div class="form-group">
+          <label>行程費用 ($)</label>
+          <input type="number" id="basePay_${index}" step="0.1" placeholder="例如: 45" required style="width:100%;" oninput="hideBadge(${index})">
         </div>
 
         <div class="form-group">
@@ -610,7 +598,7 @@
       triggerVibrate(60); 
       const basePayInput = document.getElementById(`basePay_${index}`); 
       const basePayVal = parseFloat(basePayInput.value);
-      const tipVal = parseFloat(document.getElementById(`tip_${index}`).value) || 0; // 讀取小費
+      const tipVal = 0; // 新增這單時，小費必定為0
 
       if (isNaN(basePayVal) || basePayVal <= 0) { alert('請先輸入此單的實收車資！'); basePayInput.focus(); return; }
       
@@ -622,7 +610,7 @@
       
       const rate = parseFloat(document.getElementById('hourlyRate').value) || 245; 
       const ratePerMin = rate / 60; 
-      const coveredMin = basePayVal / ratePerMin; // 小費不計入補差額公式
+      const coveredMin = basePayVal / ratePerMin; 
       
       let shortage = 0; let overMin = 0;
       if (duration > coveredMin) { overMin = duration - coveredMin; shortage = Math.round((overMin * ratePerMin) * 10) / 10; }
@@ -645,7 +633,7 @@
       const isFirstBlock = (blocks.length > 0 && blocks[0].id === `order_block_${index}`);
       if (!isFirstBlock) { removeOrderBlock(index); render(); return; }
       
-      basePayInput.value = ''; document.getElementById(`tip_${index}`).value = '';
+      basePayInput.value = '';
       document.getElementById(`startH_${index}`).value = '00'; document.getElementById(`startM_${index}`).value = '00';
       document.getElementById(`endH_${index}`).value = '00'; document.getElementById(`endM_${index}`).value = '00';
       const block = document.getElementById(`order_block_${index}`);
@@ -687,7 +675,7 @@
       
       document.getElementById('edit_id').value = r.id;
       document.getElementById('edit_basePay').value = r.basePay;
-      document.getElementById('edit_tip').value = r.tip || 0; // 帶入小費
+      document.getElementById('edit_tip').value = r.tip || 0; 
       
       const [sh, sm] = r.startTime.split(':');
       document.getElementById('edit_startH').value = sh;
@@ -766,7 +754,6 @@
         if(idx !== -1) { 
           chartData[idx].base += r.basePay; 
           chartData[idx].short += r.shortage; 
-          // 圖表完全不介入小費計算
         } 
       });
 
@@ -776,7 +763,6 @@
       let weeklyTipTotal = 0;
       
       records.forEach(r => {
-        // 算出本週小費總合
         const idx = chartData.findIndex(cd => cd.date === r.date); 
         if (idx !== -1) {
            weeklyTipTotal += (r.tip || 0);
