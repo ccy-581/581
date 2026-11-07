@@ -139,12 +139,6 @@
     }
     input:focus, select:focus { border-color: var(--primary); }
 
-    .dashboard {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 6px;
-      margin-bottom: 12px;
-    }
     .dash-box {
       background: var(--card);
       padding: 10px 4px;
@@ -270,6 +264,7 @@
     }
     .btn-sm:active { opacity: 0.7; }
     
+    /* 🔥 新增切換週數的按鈕樣式 */
     .week-nav-btn {
       background: var(--bg);
       border: 1px solid var(--border);
@@ -362,13 +357,12 @@
       </form>
     </div>
 
-    <!-- 歷史週次總結看板 (加入切換箭頭) -->
+    <!-- 🔥 歷史週次總結看板 (加入切換箭頭) -->
     <div class="card" id="weeklySummaryCard">
       <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <button class="week-nav-btn" id="btnPrevWeek" onclick="changeWeekOffset(-1)">◀</button>
-          <!-- 🔥 修改標題，顯示「日到六」 -->
-          <span style="font-weight: 800; font-size: 0.95rem; color: var(--text);" id="weekLabel">📅 本週總結 (日到六)</span>
+          <span style="font-weight: 800; font-size: 0.95rem; color: var(--text);" id="weekLabel">📅 本週總結</span>
           <button class="week-nav-btn" id="btnNextWeek" onclick="changeWeekOffset(1)">▶</button>
         </div>
         <span style="color: var(--primary); font-size: 1.25rem; font-weight: 900;" id="weeklyTotalText">$0</span>
@@ -461,6 +455,7 @@
   </div>
 
   <script>
+    // 🔥 加入週數追蹤變數
     let currentWeekOffset = 0; 
 
     // iOS 語音解鎖機制
@@ -518,13 +513,14 @@
     document.getElementById('edit_startH').innerHTML = hourOptionsHTML;
     document.getElementById('edit_startM').innerHTML = minOptionsHTML;
 
+    // 🔥 處理週次切換
     function changeWeekOffset(delta) {
-      if (currentWeekOffset === -4 && delta === -1) return; 
-      if (currentWeekOffset === 0 && delta === 1) return;   
+      if (currentWeekOffset === -4 && delta === -1) return; // 最多回看 4 週
+      if (currentWeekOffset === 0 && delta === 1) return;   // 不能看未來的週數
       
       triggerVibrate(20);
       currentWeekOffset += delta;
-      renderChart(); 
+      renderChart(); // 重新繪製圖表與總結
     }
 
     function addOrderBlock() {
@@ -595,10 +591,7 @@
 
     setInterval(() => {
       const blocks = document.querySelectorAll('.order-block');
-      
-      // 🔥 強制將每分鐘費率精確設定為 4.08，不論時薪輸入多少 (根據實戰要求)
-      const ratePerMin = 4.08; 
-
+      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245; const ratePerMin = rate / 60;
       blocks.forEach(block => {
         if (block.dataset.started !== 'true' || block.dataset.ended === 'true') return;
         const index = block.id.replace('order_block_', ''); const startH_el = document.getElementById(`startH_${index}`); if (!startH_el) return;
@@ -622,10 +615,8 @@
           }
         }
 
-        const basePay = parseFloat(document.getElementById(`basePay_${index}`).value) || 0; 
-        const coveredMin = basePay / ratePerMin; 
+        const basePay = parseFloat(document.getElementById(`basePay_${index}`).value) || 0; const coveredMin = basePay / ratePerMin;
         const liveMoney = document.getElementById(`live_money_${index}`); const panel = document.getElementById(`live_panel_${index}`);
-        
         if (basePay === 0) {
            liveMoney.textContent = "請輸入車資"; liveMoney.style.color = "#FFCA28"; panel.style.borderLeftColor = "#FFCA28";
         } else if ((totalSeconds / 60) > coveredMin) {
@@ -642,7 +633,7 @@
       triggerVibrate(60); 
       const basePayInput = document.getElementById(`basePay_${index}`); 
       const basePayVal = parseFloat(basePayInput.value);
-      const tipVal = 0; 
+      const tipVal = 0; // 新單預設無小費
 
       if (isNaN(basePayVal) || basePayVal <= 0) { alert('請先輸入此單的實收車資！'); basePayInput.focus(); return; }
       
@@ -652,8 +643,8 @@
       
       if (duration <= 0) { alert('請確認送達時間與接單時間！'); return; }
       
-      // 🔥 強制使用精確的 4.08 費率計算補差額
-      const ratePerMin = 4.08; 
+      const rate = parseFloat(document.getElementById('hourlyRate').value) || 245; 
+      const ratePerMin = rate / 60; 
       const coveredMin = basePayVal / ratePerMin; 
       
       let shortage = 0; let overMin = 0;
@@ -673,7 +664,7 @@
       
       localStorage.setItem('delivery_records', JSON.stringify(records)); currentFilter = dateStr;
       
-      currentWeekOffset = 0; 
+      currentWeekOffset = 0; // 🔥 新增訂單後，將圖表視角切回「本週」
 
       const blocks = Array.from(document.querySelectorAll('#ordersContainer .order-block'));
       const isFirstBlock = (blocks.length > 0 && blocks[0].id === `order_block_${index}`);
@@ -753,8 +744,8 @@
       let eh = Math.floor(endTotalMin / 60) % 24;
       let em = endTotalMin % 60;
       
-      // 🔥 強制使用精確的 4.08 費率計算補差額
-      const ratePerMin = 4.08;
+      const hourlyRate = parseFloat(document.getElementById('hourlyRate').value) || 245;
+      const ratePerMin = hourlyRate / 60;
       const coveredMin = basePay / ratePerMin;
       let shortage = 0;
       
@@ -777,6 +768,7 @@
       }
     }
 
+    // 🔥 重新繪製圖表與週次總結
     function renderChart() {
       const chartEl = document.getElementById('weeklyChart'); if (!chartEl) return;
       chartEl.innerHTML = ''; 
@@ -784,23 +776,22 @@
       const baseDate = new Date(); 
       if (baseDate.getHours() < 4) { baseDate.setDate(baseDate.getDate() - 1); }
       
+      // 🔥 加上週次切換的平移天數 (-7, -14, -21, -28)
       baseDate.setDate(baseDate.getDate() + (currentWeekOffset * 7));
 
-      // 🔥 變更邏輯：將週日設為一週的第一天
-      let dayOfWeek = baseDate.getDay(); // 0(日), 1(一)...
-      // 找出距離當週週日的差距，往前推
-      let distanceToSunday = dayOfWeek; 
-      let sundayDate = new Date(baseDate); 
-      sundayDate.setDate(baseDate.getDate() - distanceToSunday);
+      let dayOfWeek = baseDate.getDay(); 
+      let distanceToMonday = (dayOfWeek + 6) % 7; 
+      let mondayDate = new Date(baseDate); 
+      mondayDate.setDate(baseDate.getDate() - distanceToMonday);
 
-      let days = []; 
-      let dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+      let days = []; let dayNames = ['一', '二', '三', '四', '五', '六', '日'];
       
       for (let i = 0; i < 7; i++) { 
-        const d = new Date(sundayDate); d.setDate(sundayDate.getDate() + i); 
+        const d = new Date(mondayDate); d.setDate(mondayDate.getDate() + i); 
         days.push({ dateStr: `${d.getMonth() + 1}/${d.getDate()}`, dayLabel: dayNames[i] }); 
       }
 
+      // 🔥 更新顯示的「週次」標題
       let weekStr = "本週";
       if (currentWeekOffset === -1) weekStr = "上週";
       else if (currentWeekOffset === -2) weekStr = "前兩週";
@@ -808,10 +799,11 @@
       else if (currentWeekOffset === -4) weekStr = "前四週";
       
       const weekLabelEl = document.getElementById('weekLabel');
-      if (weekLabelEl) weekLabelEl.innerText = `📅 ${weekStr}總結 (日到六)`; // 更新標題提示
+      if (weekLabelEl) weekLabelEl.innerText = `📅 ${weekStr}總結`;
       const chartTitleEl = document.getElementById('chartTitleText');
       if (chartTitleEl) chartTitleEl.innerText = `📊 ${weekStr}跑單趨勢 (不含小費)`;
 
+      // 控制箭頭的顯示狀態 (禁用)
       const btnPrev = document.getElementById('btnPrevWeek');
       const btnNext = document.getElementById('btnNextWeek');
       if (btnPrev) btnPrev.style.opacity = currentWeekOffset <= -4 ? '0.3' : '1';
