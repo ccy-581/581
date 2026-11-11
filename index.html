@@ -358,7 +358,6 @@
     <div class="card">
       <form id="recordForm">
         <div id="ordersContainer"></div>
-        <!-- 🔥 修改按鈕文字為 1/4 單 -->
         <button type="button" class="btn-add-batch" id="btnAddBatch" onclick="addOrderBlock()">＋ 新增夾單 (目前 1/4 單)</button>
       </form>
     </div>
@@ -368,7 +367,7 @@
       <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <button class="week-nav-btn" id="btnPrevWeek" onclick="changeWeekOffset(-1)">◀</button>
-          <span style="font-weight: 800; font-size: 0.95rem; color: var(--text);" id="weekLabel">📅 本週總結 (日到六)</span>
+          <span style="font-weight: 800; font-size: 0.95rem; color: var(--text);" id="weekLabel">📅 本週總結 (一到日)</span>
           <button class="week-nav-btn" id="btnNextWeek" onclick="changeWeekOffset(1)">▶</button>
         </div>
         <span style="color: var(--primary); font-size: 1.25rem; font-weight: 900;" id="weeklyTotalText">$0</span>
@@ -462,7 +461,6 @@
 
   <script>
     let currentWeekOffset = 0; 
-    // 🔥 將最大夾單數從 3 提高為 4
     let orderCount = 0; const MAX_ORDERS = 4; let currentFilter = null; 
 
     // iOS 語音解鎖機制
@@ -532,7 +530,6 @@
       const container = document.getElementById('ordersContainer');
       const currentBlocks = container.getElementsByClassName('order-block');
       
-      // 🔥 更新超過上限的提示文字
       if (currentBlocks.length >= MAX_ORDERS) { alert(`目前最多只能夾 ${MAX_ORDERS} 單！`); return; }
       
       orderCount++; const index = orderCount; const orderNum = currentBlocks.length + 1;
@@ -696,7 +693,6 @@
     }
     function updateOrderTitles() { document.querySelectorAll('#ordersContainer .order-block').forEach((b, idx) => { const titleSpan = b.querySelector('.order-title'); if (titleSpan) titleSpan.textContent = idx === 0 ? '第 1 單' : `第 ${idx + 1} 單 (夾單)`; }); }
     
-    // 🔥 更新按鈕文字動態顯示的上限
     function updateAddButton() { 
       const count = document.querySelectorAll('#ordersContainer .order-block').length; 
       const btn = document.getElementById('btnAddBatch'); 
@@ -797,16 +793,17 @@
       
       baseDate.setDate(baseDate.getDate() + (currentWeekOffset * 7));
 
+      // 🔥 變更邏輯：將週一設為一週的第一天
       let dayOfWeek = baseDate.getDay(); 
-      let distanceToSunday = dayOfWeek; 
-      let sundayDate = new Date(baseDate); 
-      sundayDate.setDate(baseDate.getDate() - distanceToSunday);
+      let distanceToMonday = (dayOfWeek + 6) % 7; 
+      let mondayDate = new Date(baseDate); 
+      mondayDate.setDate(baseDate.getDate() - distanceToMonday);
 
       let days = []; 
-      let dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+      let dayNames = ['一', '二', '三', '四', '五', '六', '日'];
       
       for (let i = 0; i < 7; i++) { 
-        const d = new Date(sundayDate); d.setDate(sundayDate.getDate() + i); 
+        const d = new Date(mondayDate); d.setDate(mondayDate.getDate() + i); 
         days.push({ dateStr: `${d.getMonth() + 1}/${d.getDate()}`, dayLabel: dayNames[i] }); 
       }
 
@@ -817,7 +814,7 @@
       else if (currentWeekOffset === -4) weekStr = "前四週";
       
       const weekLabelEl = document.getElementById('weekLabel');
-      if (weekLabelEl) weekLabelEl.innerText = `📅 ${weekStr}總結 (日到六)`; 
+      if (weekLabelEl) weekLabelEl.innerText = `📅 ${weekStr}總結 (一到日)`; 
       const chartTitleEl = document.getElementById('chartTitleText');
       if (chartTitleEl) chartTitleEl.innerText = `📊 ${weekStr}跑單趨勢 (不含小費)`;
 
