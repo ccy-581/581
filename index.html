@@ -362,7 +362,7 @@
       </form>
     </div>
 
-    <!-- 歷史週次總結看板 (加入切換箭頭) -->
+    <!-- 歷史週次總結看板 -->
     <div class="card" id="weeklySummaryCard">
       <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -525,12 +525,30 @@
       renderChart(); 
     }
 
-    // 🔥 全域計算每分鐘費率的函式 (自動從時薪換算，無條件進位小數點第二位)
+    // 全域計算每分鐘費率 (自動從時薪換算，無條件進位小數點第二位)
     function getDynamicRatePerMin() {
       const hourlyRate = parseFloat(document.getElementById('hourlyRate').value) || 245;
-      // 例如: 245 / 60 = 4.08333... -> 4.08
-      //       255 / 60 = 4.25       -> 4.25
       return Math.floor((hourlyRate / 60) * 100) / 100;
+    }
+
+    // 🔥 防閃退：將目前的訂單草稿全部存進 localStorage
+    function saveDraftState() {
+      const blocks = document.querySelectorAll('.order-block');
+      const draft = [];
+      blocks.forEach(block => {
+        const index = block.id.replace('order_block_', '');
+        draft.push({
+          basePay: document.getElementById(`basePay_${index}`).value,
+          startH: document.getElementById(`startH_${index}`).value,
+          startM: document.getElementById(`startM_${index}`).value,
+          endH: document.getElementById(`endH_${index}`).value,
+          endM: document.getElementById(`endM_${index}`).value,
+          started: block.dataset.started,
+          ended: block.dataset.ended,
+          voiceReminded: block.dataset.voiceReminded
+        });
+      });
+      localStorage.setItem('delivery_draft', JSON.stringify(draft));
     }
 
     function addOrderBlock() {
@@ -544,7 +562,6 @@
       const isFirst = (currentBlocks.length === 0); const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
 
       const block = document.createElement('div'); block.className = 'order-block'; block.id = `order_block_${index}`;
-      
       block.dataset.voiceReminded = 'false';
 
       block.innerHTML = `
@@ -600,10 +617,9 @@
 
     function hideBadge(index) { document.getElementById(`calc_badge_${index}`).style.display = 'none'; }
 
+    // 每秒定時器 (更新計時器，並執行防閃退存檔)
     setInterval(() => {
       const blocks = document.querySelectorAll('.order-block');
-      
-      // 🔥 即時動態抓取目前的費率
       const ratePerMin = getDynamicRatePerMin(); 
 
       blocks.forEach(block => {
@@ -643,6 +659,9 @@
            liveMoney.textContent = `餘 ${rMin}:${rSec.toString().padStart(2,'0')}`; liveMoney.style.color = "var(--info)"; panel.style.borderLeftColor = "var(--info)";
         }
       });
+      
+      // 🔥 無情瘋狂自動存檔 (防閃退)
+      saveDraftState();
     }, 1000);
 
     function calculateAndSaveOrder(index) {
@@ -659,7 +678,6 @@
       
       if (duration <= 0) { alert('請確認送達時間與接單時間！'); return; }
       
-      // 🔥 結算時同樣動態抓取目前的費率
       const ratePerMin = getDynamicRatePerMin(); 
       const coveredMin = basePayVal / ratePerMin; 
       
@@ -771,7 +789,6 @@
       let eh = Math.floor(endTotalMin / 60) % 24;
       let em = endTotalMin % 60;
       
-      // 🔥 編輯視窗結算也動態抓取費率
       const ratePerMin = getDynamicRatePerMin();
       const coveredMin = basePay / ratePerMin;
       let shortage = 0;
@@ -986,7 +1003,43 @@
       document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
     }
 
-    addOrderBlock(); render();
+    // 🔥 讀取草稿機制 (網頁開啟時執行)
+    let draftLoaded = false;
+    try {
+      const savedDraft = localStorage.getItem('delivery_draft');
+      if (savedDraft) {
+        const draftArr = JSON.parse(savedDraft);
+        if (Array.isArray(draftArr) && draftArr.length > 0) {
+          draftArr.forEach(d => {
+            addOrderBlock(); // 產生新區塊
+            const currentIdx = orderCount; 
+            document.getElementById(`basePay_${currentIdx}`).value = d.basePay || '';
+            document.getElementById(`startH_${currentIdx}`).value = d.startH || '00';
+            document.getElementById(`startM_${currentIdx}`).value = d.startM || '00';
+            document.getElementById(`endH_${currentIdx}`).value = d.endH || '00';
+            document.getElementById(`endM_${currentIdx}`).value = d.endM || '00';
+            
+            const block = document.getElementById(`order_block_${currentIdx}`);
+            block.dataset.started = d.started || 'false';
+            block.dataset.ended = d.ended || 'false';
+            block.dataset.voiceReminded = d.voiceReminded || 'false';
+            
+            // 如果原本已經按了接單，就讓記分板重新顯示
+            if (d.started === 'true' && d.ended !== 'true') {
+              document.getElementById(`live_panel_${currentIdx}`).style.display = 'flex';
+            }
+          });
+          draftLoaded = true;
+        }
+      }
+    } catch(e) { console.log('草稿讀取失敗', e); }
+
+    // 如果沒有任何未存檔的草稿，就預設產生一個空的第一單
+    if (!draftLoaded) {
+      addOrderBlock();
+    }
+    
+    render();
   </script>
 </body>
 </html>
