@@ -16,7 +16,7 @@
       --danger: #E41E3F;
       --info: #0A66C2;
       --tip: #F59E0B;
-      --ratio: #8B5CF6; /* 新增差額佔比的紫色 */
+      --ratio: #8B5CF6;
       --border: #CED0D4;
       --order-bg: #F9FAFB;
       --input-bg: #FFFFFF;
@@ -56,7 +56,7 @@
       --danger: #FF5252;        
       --info: #00FF66;          
       --tip: #FCD34D;
-      --ratio: #A78BFA; /* 深色模式下的亮紫色 */
+      --ratio: #A78BFA;
       --border: #57534E;        
       --order-bg: #3A3532;      
       --input-bg: #1C1917;      
@@ -332,7 +332,6 @@
 
     <!-- 單日總計看板 -->
     <div style="margin-bottom: 12px;">
-      <!-- 🔥 上排擴充為 3 個區塊，加入差額佔比 -->
       <div style="display: flex; gap: 6px; margin-bottom: 6px;">
         <div class="dash-box" style="flex: 1; padding: 8px 4px;">
           <span>單日/時間</span>
@@ -472,24 +471,6 @@
     let currentWeekOffset = 0; 
     let orderCount = 0; const MAX_ORDERS = 4; let currentFilter = null; 
 
-    // iOS 語音解鎖機制
-    let speechUnlocked = false;
-    function unlockSpeech() {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.resume();
-        if (!speechUnlocked) {
-          const u = new SpeechSynthesisUtterance('');
-          u.volume = 0; 
-          window.speechSynthesis.speak(u);
-          speechUnlocked = true;
-          document.removeEventListener('touchstart', unlockSpeech);
-          document.removeEventListener('click', unlockSpeech);
-        }
-      }
-    }
-    document.addEventListener('touchstart', unlockSpeech);
-    document.addEventListener('click', unlockSpeech);
-
     function triggerVibrate(ms = 30) { if (navigator.vibrate) navigator.vibrate(ms); }
 
     function getShiftDate(dateObj = new Date()) {
@@ -551,8 +532,7 @@
           endH: document.getElementById(`endH_${index}`).value,
           endM: document.getElementById(`endM_${index}`).value,
           started: block.dataset.started,
-          ended: block.dataset.ended,
-          voiceReminded: block.dataset.voiceReminded
+          ended: block.dataset.ended
         });
       });
       localStorage.setItem('delivery_draft', JSON.stringify(draft));
@@ -569,7 +549,6 @@
       const isFirst = (currentBlocks.length === 0); const titleText = isFirst ? '第 1 單' : `第 ${orderNum} 單 (夾單)`;
 
       const block = document.createElement('div'); block.className = 'order-block'; block.id = `order_block_${index}`;
-      block.dataset.voiceReminded = 'false';
 
       block.innerHTML = `
         <div class="order-block-header">
@@ -612,7 +591,6 @@
       const block = document.getElementById(`order_block_${index}`);
       if (block) {
         block.dataset.started = 'true'; block.dataset.ended = 'false';
-        block.dataset.voiceReminded = 'false';
         document.getElementById(`live_panel_${index}`).style.display = 'flex'; hideBadge(index);
       }
     }
@@ -636,20 +614,6 @@
         let diffMs = now.getTime() - start.getTime(); if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
         const totalSeconds = Math.floor(diffMs / 1000); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60;
         document.getElementById(`live_time_${index}`).textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
-        
-        if (totalSeconds >= 600) {
-          if (block.dataset.voiceReminded !== 'true') {
-            block.dataset.voiceReminded = 'true';
-            if ('speechSynthesis' in window) {
-              window.speechSynthesis.resume(); 
-              window.speechSynthesis.cancel();
-              const utterance = new SpeechSynthesisUtterance('阿ㄅ，完成訂單後，記得按結束餒，哉某');
-              utterance.lang = 'zh-TW';
-              utterance.rate = 1.0;
-              window.speechSynthesis.speak(utterance);
-            }
-          }
-        }
 
         const basePay = parseFloat(document.getElementById(`basePay_${index}`).value) || 0; 
         const coveredMin = basePay / ratePerMin; 
@@ -713,7 +677,7 @@
       document.getElementById(`startH_${index}`).value = '00'; document.getElementById(`startM_${index}`).value = '00';
       document.getElementById(`endH_${index}`).value = '00'; document.getElementById(`endM_${index}`).value = '00';
       const block = document.getElementById(`order_block_${index}`);
-      block.dataset.started = 'false'; block.dataset.ended = 'false'; block.dataset.voiceReminded = 'false';
+      block.dataset.started = 'false'; block.dataset.ended = 'false';
       document.getElementById(`live_panel_${index}`).style.display = 'none';
       const badge = document.getElementById(`calc_badge_${index}`); badge.className = 'calc-result-badge success';
       badge.innerHTML = `<strong>✓ 儲存成功！剛才這單補差額：$${shortage} 元</strong><br><span style="font-size: 0.85rem; font-weight:600; opacity: 0.9;">格子已清空，可直接開始下一單！</span>`;
@@ -988,7 +952,6 @@
       const totalTipEl = document.getElementById('totalTip');
       if (totalTipEl) totalTipEl.innerText = `$${Math.round(totalTip)}`;
       
-      // 🔥 計算並更新差額佔比
       const totalEarnedNoTip = totalBasePay + totalShortage;
       const ratio = totalEarnedNoTip > 0 ? (totalShortage / totalEarnedNoTip) * 100 : 0;
       const ratioEl = document.getElementById('shortageRatio');
@@ -1032,7 +995,6 @@
             const block = document.getElementById(`order_block_${currentIdx}`);
             block.dataset.started = d.started || 'false';
             block.dataset.ended = d.ended || 'false';
-            block.dataset.voiceReminded = d.voiceReminded || 'false';
             
             if (d.started === 'true' && d.ended !== 'true') {
               document.getElementById(`live_panel_${currentIdx}`).style.display = 'flex';
